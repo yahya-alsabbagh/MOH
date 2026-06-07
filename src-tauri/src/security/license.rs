@@ -38,6 +38,16 @@ pub struct LicenseData {
     pub run_count: u32,
     pub max_runs: u32,
     pub max_runtime_minutes: u32,
+    #[serde(default = "default_time")]
+    pub first_run_time: u64,
+    #[serde(default = "default_time")]
+    pub last_saved_time: u64,
+    #[serde(default)]
+    pub is_time_tampered: bool,
+}
+
+fn default_time() -> u64 {
+    SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap_or_default().as_secs()
 }
 
 #[derive(Debug, Clone)]
@@ -245,11 +255,15 @@ pub fn check_decoy_files() -> Result<(), SecurityError> {
 
 pub fn initialize_license(max_runs: u32, max_runtime_minutes: u32) -> Result<LicenseData, SecurityError> {
     let machine_id = generate_machine_id()?;
+    let now = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap_or_default().as_secs();
     let license = LicenseData {
         machine_id,
         run_count: 0,
         max_runs,
         max_runtime_minutes,
+        first_run_time: now,
+        last_saved_time: now,
+        is_time_tampered: false,
     };
     let path = default_license_path()?;
     save_license_file(path, &license)?;
@@ -257,21 +271,53 @@ pub fn initialize_license(max_runs: u32, max_runtime_minutes: u32) -> Result<Lic
     Ok(license)
 }
 
-pub fn check_time_tampering() -> Result<(), SecurityError> {
-    let current_boot = get_current_boot_time();
-    let expected = *EXPECTED_BOOT_TIME.read().unwrap();
-    
-    // Allow up to 10 seconds of tolerance for clock drift or delay
-    if current_boot.abs_diff(expected) > 10 {
+pub fn check_time_tampering_internal(license: &mut LicenseData, path: &Path) -> Result<(), SecurityError> {
+    if license.is_time_tampered {
         return Err(SecurityError::TimeTampered);
     }
+
+    let current_boot = get_current_boot_time();
+    let expected = *EXPECTED_BOOT_TIME.read().unwrap();
+    let now = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap_or_default().as_secs();
     
+    let mut tampered = false;
+    
+    // Check for in-memory clock drift (user changed time while app running)
+    if current_boot.abs_diff(expected) > 10 {
+        tampered = true;
+    }
+    
+    // Check if time moved backwards compared to last saved time
+    if now < license.last_saved_time {
+        tampered = true;
+    }
+
+    if tampered {
+        license.is_time_tampered = true;
+        let _ = save_license_file(path, license);
+        return Err(SecurityError::TimeTampered);
+    }
+
     Ok(())
 }
 
-pub fn verify_and_touch_license() -> Result<LicenseStatus, SecurityError> {
-    check_time_tampering()?;
+pub fn active_memory_tamper_check() -> bool {
+    let current_boot = get_current_boot_time();
+    let expected = *EXPECTED_BOOT_TIME.read().unwrap();
+    
+    if current_boot.abs_diff(expected) > 10 {
+        if let Ok(path) = default_license_path() {
+            if let Ok(mut license_data) = load_license_file(&path) {
+                license_data.is_time_tampered = true;
+                let _ = save_license_file(&path, &license_data);
+            }
+        }
+        return true;
+    }
+    false
+}
 
+pub fn verify_and_touch_license() -> Result<LicenseStatus, SecurityError> {
     let machine_id = generate_machine_id()?;
     let path = default_license_path()?;
     
@@ -282,6 +328,8 @@ pub fn verify_and_touch_license() -> Result<LicenseStatus, SecurityError> {
 
     let mut license = load_license_file(&path)?;
 
+    check_time_tampering_internal(&mut license, &path)?;
+
     if license.machine_id != machine_id {
         return Err(SecurityError::HwidMismatch);
     }
@@ -291,6 +339,11 @@ pub fn verify_and_touch_license() -> Result<LicenseStatus, SecurityError> {
         return Err(SecurityError::DecoyError);
     }
 
+    // Update last saved time
+    let now = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap_or_default().as_secs();
+    license.last_saved_time = now;
+    let _ = save_license_file(&path, &license);
+
     Ok(LicenseStatus::Valid(license))
 }
 
@@ -298,12 +351,16 @@ pub fn increment_run_count() -> Result<LicenseData, SecurityError> {
     let path = default_license_path()?;
     let mut license = load_license_file(&path)?;
     
+    check_time_tampering_internal(&mut license, &path)?;
+
     if license.run_count >= license.max_runs {
         set_decoy_files_blocked();
         return Err(SecurityError::DecoyError);
     }
 
     license.run_count += 1;
+    let now = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap_or_default().as_secs();
+    license.last_saved_time = now;
     save_license_file(&path, &license)?;
     Ok(license)
 }

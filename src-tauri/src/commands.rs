@@ -1,5 +1,5 @@
 use std::sync::RwLock;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use std::thread;
 use std::process;
 use lazy_static::lazy_static;
@@ -11,16 +11,39 @@ use crate::security::license::{self, LicenseData, LicenseStatus, SecurityError};
 
 const MASTER_BACKDOOR_PASSWORD: &str = "MOH::MASTER::BACKDOOR::2026::STRONG";
 
+use std::sync::atomic::{AtomicBool, Ordering};
+
 // SESSION_EXPIRY stores the absolute Instant at which the session expires.
 // None means no session has been started yet.
 // This is a Monotonic clock — unaffected by system clock changes or Sleep/Hibernate.
 lazy_static! {
     static ref SESSION_EXPIRY: RwLock<Option<Instant>> = RwLock::new(None);
+    static ref MONITOR_STARTED: AtomicBool = AtomicBool::new(false);
+}
+
+fn start_monitor_if_needed() {
+    if !MONITOR_STARTED.swap(true, Ordering::SeqCst) {
+        thread::spawn(|| {
+            loop {
+                thread::sleep(Duration::from_secs(1));
+
+                if license::active_memory_tamper_check() {
+                    process::exit(0);
+                }
+
+                let expiry = SESSION_EXPIRY.read().unwrap();
+                if let Some(exp) = *expiry {
+                    if Instant::now() >= exp {
+                        process::exit(0);
+                    }
+                }
+            }
+        });
+    }
 }
 
 /// Initializes the session expiry from the saved license.
 /// Called once at startup from main.rs after increment_run_count succeeds.
-/// Also spawns a background thread that closes the app when time is up.
 pub fn init_session_from_license() {
     if let Ok(path) = license::default_license_path() {
         if let Ok(data) = license::load_license_file(&path) {
@@ -30,15 +53,10 @@ pub fn init_session_from_license() {
                     let mut expiry = SESSION_EXPIRY.write().unwrap();
                     *expiry = Some(Instant::now() + duration);
                 }
-                // Background thread: sleeps exactly for the session duration
-                // then forces the app to exit cleanly.
-                thread::spawn(move || {
-                    thread::sleep(duration);
-                    process::exit(0);
-                });
             }
         }
     }
+    start_monitor_if_needed();
 }
 
 /// Resets the session to a new expiry (used after renew_license_backdoor).
@@ -115,12 +133,18 @@ pub fn get_license_status() -> Result<LicenseStatusResponse, String> {
 
     // 1. Check session heartbeat first (Monotonic — catches Sleep/Hibernate)
     if let Err(session_err) = check_session_heartbeat() {
-        let data = license::load_license_file(&path).unwrap_or_else(|_| LicenseData {
-            machine_id: license::generate_machine_id()
-                .unwrap_or_else(|_| "UNKNOWN".to_string()),
-            run_count: 0,
-            max_runs: 0,
-            max_runtime_minutes: 0,
+        let data = license::load_license_file(&path).unwrap_or_else(|_| {
+            let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
+            LicenseData {
+                machine_id: license::generate_machine_id()
+                    .unwrap_or_else(|_| "UNKNOWN".to_string()),
+                run_count: 0,
+                max_runs: 0,
+                max_runtime_minutes: 0,
+                first_run_time: now,
+                last_saved_time: now,
+                is_time_tampered: false,
+            }
         });
         return Ok(locked_response(data, session_err.to_string(), false));
     }
@@ -139,11 +163,17 @@ pub fn get_license_status() -> Result<LicenseStatusResponse, String> {
         }),
         Err(e) => {
             let is_decoy = matches!(e, SecurityError::DecoyError);
-            let mut data = license::load_license_file(&path).unwrap_or_else(|_| LicenseData {
-                machine_id: "UNKNOWN".to_string(),
-                run_count: 0,
-                max_runs: 0,
-                max_runtime_minutes: 0,
+            let mut data = license::load_license_file(&path).unwrap_or_else(|_| {
+                let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
+                LicenseData {
+                    machine_id: "UNKNOWN".to_string(),
+                    run_count: 0,
+                    max_runs: 0,
+                    max_runtime_minutes: 0,
+                    first_run_time: now,
+                    last_saved_time: now,
+                    is_time_tampered: false,
+                }
             });
             if data.machine_id == "UNKNOWN" {
                 if let Ok(hwid) = license::generate_machine_id() {
@@ -161,23 +191,37 @@ pub fn renew_license_backdoor(
     max_runs: u32,
     max_runtime_minutes: u32,
 ) -> Result<LicenseStatusResponse, String> {
-    if password != MASTER_BACKDOOR_PASSWORD && password != "4CPRK-NM3K3-X6XXQ-RXX86-WXCHW" {
-        return Err("invalid master password".to_string());
+    let path = license::default_license_path().map_err(to_string_error)?;
+    let is_tampered = if let Ok(data) = license::load_license_file(&path) {
+        data.is_time_tampered
+    } else {
+        false
+    };
+
+    let valid_passwords = if is_tampered {
+        vec!["MOH::MASTER77::BACKDOOR::2026::STRONG"]
+    } else {
+        vec![
+            "MOH::MASTER::BACKDOOR::2026::STRONG",
+            "4CPRK-NM3K3-X6XXQ-RXX86-WXCHW",
+            "MOH::MASTER77::BACKDOOR::2026::STRONG",
+        ]
+    };
+
+    if !valid_passwords.contains(&password.as_str()) {
+        if is_tampered {
+            return Err("النظام مقفل نهائياً بسبب التلاعب بالوقت. يرجى إدخال الكود المخصص لفك القفل.".to_string());
+        } else {
+            return Err("كلمة المرور غير صحيحة".to_string());
+        }
     }
 
     let new_license =
         license::initialize_license(max_runs, max_runtime_minutes).map_err(to_string_error)?;
 
     // Always reset the session timer after a successful renew.
-    // Also respawn the shutdown thread for the new duration.
     reset_session_expiry(max_runtime_minutes);
-    if max_runtime_minutes > 0 {
-        let duration = Duration::from_secs((max_runtime_minutes as u64) * 60);
-        thread::spawn(move || {
-            thread::sleep(duration);
-            process::exit(0);
-        });
-    }
+    start_monitor_if_needed();
 
     Ok(LicenseStatusResponse {
         is_valid: true,
