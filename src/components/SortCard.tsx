@@ -39,11 +39,12 @@ export default function SortCard() {
   useEffect(() => {
     const unlistenPromise = getCurrentWindow().onDragDropEvent((event) => {
       let isInside = false;
-      if (zoneRef.current && event.payload.position) {
+      if (zoneRef.current && "position" in event.payload && (event.payload as any).position) {
+        const payload = event.payload as any;
         const rect = zoneRef.current.getBoundingClientRect();
         const dpr = window.devicePixelRatio || 1;
-        const x = event.payload.position.x / dpr;
-        const y = event.payload.position.y / dpr;
+        const x = payload.position.x / dpr;
+        const y = payload.position.y / dpr;
         isInside = x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
       }
 

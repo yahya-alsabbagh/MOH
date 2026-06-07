@@ -44,6 +44,8 @@ pub struct LicenseData {
     pub last_saved_time: u64,
     #[serde(default)]
     pub is_time_tampered: bool,
+    #[serde(default)]
+    pub is_admin_unlocked: bool,
 }
 
 fn default_time() -> u64 {
@@ -255,7 +257,20 @@ pub fn check_decoy_files() -> Result<(), SecurityError> {
 
 pub fn initialize_license(max_runs: u32, max_runtime_minutes: u32) -> Result<LicenseData, SecurityError> {
     let machine_id = generate_machine_id()?;
+    let path = default_license_path()?;
+
+    let existing_admin_status = if path.exists() {
+        if let Ok(existing_data) = load_license_file(&path) {
+            existing_data.is_admin_unlocked
+        } else {
+            false
+        }
+    } else {
+        false
+    };
+
     let now = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap_or_default().as_secs();
+
     let license = LicenseData {
         machine_id,
         run_count: 0,
@@ -264,9 +279,10 @@ pub fn initialize_license(max_runs: u32, max_runtime_minutes: u32) -> Result<Lic
         first_run_time: now,
         last_saved_time: now,
         is_time_tampered: false,
+        is_admin_unlocked: existing_admin_status,
     };
-    let path = default_license_path()?;
-    save_license_file(path, &license)?;
+
+    save_license_file(&path, &license)?;
     set_decoy_files_allowed();
     Ok(license)
 }

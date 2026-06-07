@@ -144,6 +144,7 @@ pub fn get_license_status() -> Result<LicenseStatusResponse, String> {
                 first_run_time: now,
                 last_saved_time: now,
                 is_time_tampered: false,
+                is_admin_unlocked: false,
             }
         });
         return Ok(locked_response(data, session_err.to_string(), false));
@@ -173,6 +174,7 @@ pub fn get_license_status() -> Result<LicenseStatusResponse, String> {
                     first_run_time: now,
                     last_saved_time: now,
                     is_time_tampered: false,
+                    is_admin_unlocked: false,
                 }
             });
             if data.machine_id == "UNKNOWN" {
@@ -275,4 +277,48 @@ pub fn run_aggregation(file_path: String) -> Result<String, String> {
         LicenseStatus::Valid(data) => data,
     };
     aggregator::run_aggregation_file(file_path).map_err(|e| e.to_string())
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn toggle_admin_status(is_admin: bool, password: String) -> Result<(), String> {
+    if password != MASTER_BACKDOOR_PASSWORD && password != "MOH::MASTER77::BACKDOOR::2026::STRONG" {
+        return Err("كلمة المرور للمطور غير صحيحة".to_string());
+    }
+    let path = license::default_license_path().map_err(to_string_error)?;
+    let mut data = license::load_license_file(&path).map_err(to_string_error)?;
+    data.is_admin_unlocked = is_admin;
+    license::save_license_file(&path, &data).map_err(to_string_error)?;
+    Ok(())
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn get_admin_status() -> Result<bool, String> {
+    let path = license::default_license_path().map_err(to_string_error)?;
+    match license::load_license_file(&path) {
+        Ok(data) => Ok(data.is_admin_unlocked),
+        Err(_) => Ok(false),
+    }
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn import_data_to_db(
+    file_path: String,
+    ministry: String,
+    directorate: String,
+    year: String,
+) -> Result<usize, String> {
+    check_session_heartbeat().map_err(to_string_error)?;
+    crate::database::importer::import_to_db(file_path, ministry, directorate, year)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn fetch_all_metrics() -> Result<Vec<crate::database::queries::DepartmentMetric>, String> {
+    check_session_heartbeat().map_err(to_string_error)?;
+    crate::database::queries::fetch_all_metrics()
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn fetch_kpi_summary() -> Result<crate::database::queries::KpiSummary, String> {
+    check_session_heartbeat().map_err(to_string_error)?;
+    crate::database::queries::fetch_kpi_summary()
 }

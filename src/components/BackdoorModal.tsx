@@ -1,12 +1,14 @@
 import { FormEvent, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { KeyRound, ShieldCheck, X } from "lucide-react";
+import { KeyRound, ShieldCheck, X, ToggleLeft, ToggleRight } from "lucide-react";
 
 type Props = {
   onRenewSuccess: () => Promise<void> | void;
+  isAdminUnlocked?: boolean;
+  onAdminToggled?: (newVal: boolean) => void;
 };
 
-export default function BackdoorModal({ onRenewSuccess }: Props) {
+export default function BackdoorModal({ onRenewSuccess, isAdminUnlocked = false, onAdminToggled }: Props) {
   const [isOpen, setIsOpen] = useState(false);
   const [password, setPassword] = useState("");
   const [maxRuns, setMaxRuns] = useState("10");
@@ -33,6 +35,28 @@ export default function BackdoorModal({ onRenewSuccess }: Props) {
     setIsOpen(false);
     setError("");
     setPassword("");
+  };
+
+  const [isToggling, setIsToggling] = useState(false);
+
+  const toggleAdmin = async () => {
+    if (!password) {
+      setError("يرجى إدخال كلمة المرور للمطور لتغيير الصلاحية");
+      return;
+    }
+    setIsToggling(true);
+    try {
+      const newVal = !isAdminUnlocked;
+      await invoke("toggle_admin_status", { isAdmin: newVal, password });
+      // Update UI instantly without waiting for heavy license refresh
+      if (onAdminToggled) onAdminToggled(newVal);
+      setError("");
+    } catch (err: any) {
+      console.error(err);
+      setError(typeof err === "string" ? err : "تعذر تغيير الصلاحية. تأكد من كلمة المرور.");
+    } finally {
+      setIsToggling(false);
+    }
   };
 
   const onSubmit = async (event: FormEvent) => {
@@ -67,7 +91,7 @@ export default function BackdoorModal({ onRenewSuccess }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/70 p-4">
       <div className="w-full max-w-md rounded-lg border border-slate-700 bg-slate-900 p-6 text-slate-100 shadow-2xl">
         <div className="mb-5 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -80,6 +104,31 @@ export default function BackdoorModal({ onRenewSuccess }: Props) {
             className="rounded-md p-1 text-slate-300 transition hover:bg-slate-800"
           >
             <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Admin Toggle */}
+        <div className="mb-6 flex items-center justify-between rounded-lg border border-slate-700 bg-slate-800/50 p-4">
+          <div>
+            <span className="block text-sm font-semibold text-slate-200">وضع الإدارة المركزية</span>
+            <span className="text-xs text-slate-400">تفعيل/تعطيل صلاحيات الوصول لمركز البيانات</span>
+          </div>
+          <button
+            type="button"
+            onClick={toggleAdmin}
+            disabled={isToggling}
+            className={`flex h-8 items-center justify-center rounded-full transition-all duration-200 ${
+              isToggling ? "opacity-50 cursor-wait" :
+              isAdminUnlocked ? "text-emerald-400 hover:text-emerald-300" : "text-slate-500 hover:text-slate-300"
+            }`}
+          >
+            {isToggling ? (
+              <div className="h-6 w-6 animate-spin rounded-full border-2 border-slate-500 border-t-emerald-400" />
+            ) : isAdminUnlocked ? (
+              <ToggleRight className="h-8 w-8" />
+            ) : (
+              <ToggleLeft className="h-8 w-8" />
+            )}
           </button>
         </div>
 

@@ -4,6 +4,7 @@
 mod commands;
 mod core;
 mod security;
+mod database;
 
 fn main() {
     tauri::Builder::default()
@@ -17,6 +18,11 @@ fn main() {
             // This must run AFTER increment_run_count so the file is up-to-date.
             crate::commands::init_session_from_license();
 
+            // Initialize DuckDB Database
+            if let Err(e) = crate::database::setup::initialize_db() {
+                eprintln!("Failed to initialize database: {}", e);
+            }
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -26,7 +32,12 @@ fn main() {
             commands::run_title_validation,
             commands::read_excel_headers,
             commands::get_reference_data,
-            commands::run_aggregation
+            commands::run_aggregation,
+            commands::toggle_admin_status,
+            commands::get_admin_status,
+            commands::import_data_to_db,
+            commands::fetch_all_metrics,
+            commands::fetch_kpi_summary
         ])
         .run(tauri::generate_context!())
         .expect("failed to run tauri application");

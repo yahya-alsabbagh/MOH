@@ -1,20 +1,33 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { Minus, Maximize, X, ShieldCheck, LayoutDashboard, AlertCircle } from "lucide-react";
+import { invoke } from "@tauri-apps/api/core";
+import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
+import { Minus, Maximize, X, ShieldCheck, AlertCircle, Database } from "lucide-react";
 
 import BackdoorModal from "./components/BackdoorModal";
-import FileUploadZone from "./components/FileUploadZone";
-import DuplicateCheckerCard from "./components/DuplicateCheckerCard";
-import TitleValidatorCard from "./components/TitleValidatorCard";
-import SortCard from "./components/SortCard";
+import Home from "./views/Home";
+import DataCenter from "./views/DataCenter";
 import { useLicense } from "./hooks/useLicense";
 
 const appWindow = getCurrentWindow();
 
 export default function App() {
   const { isLoading, isLocked, isDecoyError, refresh } = useLicense();
-  const [uploadedFilePath, setUploadedFilePath] = useState<string>("");
-  const [excelHeaders, setExcelHeaders] = useState<string[]>([]);
+  const [isAdminUnlocked, setIsAdminUnlocked] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Read admin status ONCE on app start. Live updates come from onAdminToggled callback.
+  useEffect(() => {
+    invoke<boolean>("get_admin_status")
+      .then((status) => setIsAdminUnlocked(status))
+      .catch(console.error);
+  }, []);
+
+  // DEBUG: log state changes
+  useEffect(() => {
+    console.log("[STATE CHANGE] isLocked:", isLocked, "isAdminUnlocked:", isAdminUnlocked, "pathname:", location.pathname);
+  }, [isLocked, isAdminUnlocked, location.pathname]);
 
   /* ─── Loading Screen ─── */
   if (isLoading) {
@@ -32,7 +45,14 @@ export default function App() {
   if (isLocked) {
     return (
       <div className="flex min-h-screen flex-col bg-slate-50 font-sans">
-        <BackdoorModal onRenewSuccess={refresh} />
+        <BackdoorModal
+          onRenewSuccess={() => {
+            refresh();
+            invoke<boolean>("get_admin_status").then(setIsAdminUnlocked).catch(console.error);
+          }}
+          isAdminUnlocked={isAdminUnlocked}
+          onAdminToggled={(val) => setIsAdminUnlocked(val)}
+        />
         {/* Custom title bar for locked screen */}
         <div
           data-tauri-drag-region
@@ -80,8 +100,15 @@ export default function App() {
 
   /* ─── Main Application ─── */
   return (
-    <div dir="rtl" className="flex min-h-screen flex-col bg-slate-50 font-cairo">
-      <BackdoorModal onRenewSuccess={refresh} />
+    <div dir="rtl" className="flex min-h-screen flex-col bg-slate-50 font-cairo relative">
+      <BackdoorModal
+        onRenewSuccess={() => {
+          refresh();
+          invoke<boolean>("get_admin_status").then(setIsAdminUnlocked).catch(console.error);
+        }}
+        isAdminUnlocked={isAdminUnlocked}
+        onAdminToggled={(val) => setIsAdminUnlocked(val)}
+      />
 
       {/* ── Custom Title Bar / Header ── */}
       <header data-tauri-drag-region className="flex h-14 w-full flex-shrink-0 items-center justify-between bg-navy-900 px-5 shadow-md">
@@ -125,45 +152,25 @@ export default function App() {
       </header>
 
       {/* ── Page Content ── */}
-      <main className="flex-1 overflow-y-auto p-5">
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-5">
-
-          {/* Section Title */}
-          <div className="flex items-center gap-2">
-            <LayoutDashboard className="h-4 w-4 text-slate-400" />
-            <span className="text-sm font-semibold text-slate-500">لوحة أدوات المعالجة</span>
-          </div>
-
-          {/* ── File Upload Zone ── */}
-          <FileUploadZone
-            onFileUploaded={(path, headers) => {
-              setUploadedFilePath(path);
-              setExcelHeaders(headers);
-            }}
-            onReset={() => {
-              setUploadedFilePath("");
-              setExcelHeaders([]);
-            }}
-          />
-
-          {/* ── Action Cards Grid ── */}
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-            <DuplicateCheckerCard
-              filePath={uploadedFilePath}
-              headers={excelHeaders}
-            />
-            <TitleValidatorCard workFilePath={uploadedFilePath} headers={excelHeaders} />
-            <SortCard />
-          </div>
-
-          {/* Status Bar */}
-          {!uploadedFilePath && (
-            <p className="text-center text-xs text-slate-400">
-              ارفع ملف الإكسل أعلاه لتفعيل أدوات المعالجة
-            </p>
-          )}
-        </div>
+      <main className="flex-1 overflow-y-auto p-5 pb-20">
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/data-center" element={<DataCenter />} />
+        </Routes>
       </main>
+
+      {/* Data Center Floating Button */}
+      {isAdminUnlocked && location.pathname !== "/data-center" && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
+          <button
+            onClick={() => navigate("/data-center")}
+            className="flex items-center gap-2 rounded-full bg-gradient-to-l from-indigo-600 to-indigo-800 px-6 py-3 text-sm font-bold text-white shadow-lg transition-transform hover:scale-105 hover:shadow-xl active:scale-95"
+          >
+            <Database className="h-5 w-5" />
+            مركز إدارة البيانات والتحليلات
+          </button>
+        </div>
+      )}
     </div>
   );
 }
