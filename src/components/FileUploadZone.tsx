@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
@@ -46,19 +46,32 @@ export default function FileUploadZone({ onFileUploaded, onReset }: Props) {
     }
   };
 
+  const zoneRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     const unlistenPromise = getCurrentWindow().onDragDropEvent((event) => {
+      let isInside = false;
+      if (zoneRef.current && event.payload.position) {
+        const rect = zoneRef.current.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        const x = event.payload.position.x / dpr;
+        const y = event.payload.position.y / dpr;
+        isInside = x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+      }
+
       if (event.payload.type === "over") {
-        setIsDragging(true);
+        setIsDragging(isInside);
       } else if (event.payload.type === "drop") {
         setIsDragging(false);
-        const paths = event.payload.paths;
-        if (paths && paths.length > 0) {
-          const path = paths[0];
-          if (path.endsWith(".xlsx") || path.endsWith(".xls")) {
-            processFile(path);
-          } else {
-            console.error("يرجى اختيار ملف بصيغة Excel فقط.");
+        if (isInside) {
+          const paths = event.payload.paths;
+          if (paths && paths.length > 0) {
+            const path = paths[0];
+            if (path.endsWith(".xlsx") || path.endsWith(".xls")) {
+              processFile(path);
+            } else {
+              console.error("يرجى اختيار ملف بصيغة Excel فقط.");
+            }
           }
         }
       } else {
@@ -139,6 +152,7 @@ export default function FileUploadZone({ onFileUploaded, onReset }: Props) {
   /* ──────── Idle / Error ──────── */
   return (
     <div
+      ref={zoneRef}
       className={`relative cursor-pointer overflow-hidden rounded-2xl border-2 border-dashed p-8 transition-all duration-300
         ${isDragging 
           ? "border-navy-500 bg-navy-50 shadow-[0_0_40px_rgba(30,58,138,0.15)]" 

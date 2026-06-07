@@ -24,6 +24,10 @@ export default function TitleValidatorCard({ workFilePath, headers }: Props) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [result, setResult] = useState<ResultState>({ kind: "idle" });
 
+  useEffect(() => {
+    setResult({ kind: "idle" });
+  }, [workFilePath]);
+
   const isDisabled = !workFilePath;
 
   // We don't need to fetch reference data to display the count anymore as requested by user.

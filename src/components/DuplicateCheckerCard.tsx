@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import {
   ScanSearch,
@@ -22,6 +22,10 @@ export default function DuplicateCheckerCard({ filePath, headers }: Props) {
   const [columnName, setColumnName] = useState<string>("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [result, setResult] = useState<ResultState>({ kind: "idle" });
+
+  useEffect(() => {
+    setResult({ kind: "idle" });
+  }, [filePath]);
 
   const isDisabled = !filePath;
 

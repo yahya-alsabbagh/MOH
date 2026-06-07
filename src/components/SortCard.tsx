@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -15,6 +15,7 @@ export default function SortCard() {
   const [matchingFilePath, setMatchingFilePath] = useState<string>("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const zoneRef = useRef<HTMLDivElement>(null);
   
   type ResultState =
     | { kind: "idle" }
@@ -37,16 +38,27 @@ export default function SortCard() {
 
   useEffect(() => {
     const unlistenPromise = getCurrentWindow().onDragDropEvent((event) => {
+      let isInside = false;
+      if (zoneRef.current && event.payload.position) {
+        const rect = zoneRef.current.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        const x = event.payload.position.x / dpr;
+        const y = event.payload.position.y / dpr;
+        isInside = x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+      }
+
       if (event.payload.type === "over") {
-        setIsDragging(true);
+        setIsDragging(isInside);
       } else if (event.payload.type === "drop") {
         setIsDragging(false);
-        const paths = event.payload.paths;
-        if (paths && paths.length > 0) {
-          const path = paths[0];
-          if (path.endsWith(".xlsx") || path.endsWith(".xls")) {
-            setMatchingFilePath(path);
-            setResult({ kind: "idle" });
+        if (isInside) {
+          const paths = event.payload.paths;
+          if (paths && paths.length > 0) {
+            const path = paths[0];
+            if (path.endsWith(".xlsx") || path.endsWith(".xls")) {
+              setMatchingFilePath(path);
+              setResult({ kind: "idle" });
+            }
           }
         }
       } else {
@@ -88,6 +100,7 @@ export default function SortCard() {
 
   return (
     <div
+      ref={zoneRef}
       className={`group relative overflow-hidden flex flex-col rounded-xl border bg-white p-5 shadow-card transition-all duration-300 border-slate-200 hover:border-amber-200 hover:shadow-card-hover`}
     >
       {/* Loading Overlay */}
