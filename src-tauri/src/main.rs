@@ -37,7 +37,9 @@ fn main() {
             commands::get_admin_status,
             commands::import_data_to_db,
             commands::fetch_all_metrics,
-            commands::fetch_kpi_summary
+            commands::fetch_kpi_summary,
+            commands::fetch_filter_options,
+            commands::fetch_filtered_analytics
         ])
         .run(tauri::generate_context!())
         .expect("failed to run tauri application");

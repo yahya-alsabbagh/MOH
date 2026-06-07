@@ -322,3 +322,21 @@ pub fn fetch_kpi_summary() -> Result<crate::database::queries::KpiSummary, Strin
     check_session_heartbeat().map_err(to_string_error)?;
     crate::database::queries::fetch_kpi_summary()
 }
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn fetch_filter_options(ministry: Option<String>) -> Result<crate::database::queries::FilterOptions, String> {
+    check_session_heartbeat().map_err(to_string_error)?;
+    crate::database::queries::fetch_filter_options(ministry)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn fetch_filtered_analytics(
+    ministry: Option<String>,
+    directorate: Option<String>,
+    search: Option<String>,
+    page: usize,
+    page_size: usize,
+) -> Result<crate::database::queries::AnalyticsResponse, String> {
+    check_session_heartbeat().map_err(to_string_error)?;
+    crate::database::queries::fetch_filtered_analytics(ministry, directorate, search, page, page_size)
+}

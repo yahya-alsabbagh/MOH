@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { open } from "@tauri-apps/plugin-dialog";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
+import AnalyticsDashboard from "./AnalyticsDashboard";
 
 interface DepartmentMetric {
   id: number;
@@ -344,134 +345,8 @@ export default function DataCenter() {
         )}
 
         {activeTab === "analytics" && (
-          <div className="flex h-full flex-col bg-slate-50/30">
-            {isLoadingAnalytics ? (
-              <div className="flex flex-1 items-center justify-center gap-3 text-slate-500">
-                <Loader2 className="h-6 w-6 animate-spin" />
-                <span className="font-bold">جاري تحميل التحليلات...</span>
-              </div>
-            ) : metrics.length === 0 ? (
-              <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center opacity-80 p-12">
-                <div className="rounded-full bg-slate-100 p-6 shadow-sm border border-slate-200">
-                  <HardDrive className="h-16 w-16 text-slate-400" />
-                </div>
-                <h3 className="text-xl font-bold text-slate-700">لا توجد بيانات حالياً</h3>
-                <p className="max-w-md text-sm text-slate-500">
-                  قاعدة البيانات فارغة. يرجى التوجه إلى قسم (رفع ومزامنة البيانات) ورفع ملف الإكسل لتوليد التحليلات.
-                </p>
-                <button
-                  onClick={() => setActiveTab("upload")}
-                  className="mt-4 rounded-lg bg-indigo-50 px-6 py-2 font-bold text-indigo-600 hover:bg-indigo-100"
-                >
-                  الذهاب للرفع
-                </button>
-              </div>
-            ) : (
-              <div className="flex h-full flex-col p-6 gap-6">
-                
-                {/* KPI Cards */}
-                {kpi && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-                      <div className="flex items-center gap-3">
-                        <div className="rounded-lg bg-indigo-50 p-2 text-indigo-600"><Users className="h-5 w-5" /></div>
-                        <div>
-                          <p className="text-xs font-bold text-slate-500 uppercase">إجمالي الملاك</p>
-                          <h4 className="text-2xl font-black text-slate-800">{kpi.total_count.toLocaleString()}</h4>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-                      <div className="flex items-center gap-3">
-                        <div className="rounded-lg bg-amber-50 p-2 text-amber-600"><UserMinus className="h-5 w-5" /></div>
-                        <div>
-                          <p className="text-xs font-bold text-slate-500 uppercase">إجمالي الشواغر</p>
-                          <h4 className="text-2xl font-black text-slate-800">{kpi.total_vacant.toLocaleString()}</h4>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-                      <div className="flex items-center gap-3">
-                        <div className="rounded-lg bg-blue-50 p-2 text-blue-600"><UsersRound className="h-5 w-5" /></div>
-                        <div>
-                          <p className="text-xs font-bold text-slate-500 uppercase">إجمالي الذكور</p>
-                          <h4 className="text-2xl font-black text-slate-800">{kpi.total_male.toLocaleString()}</h4>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-                      <div className="flex items-center gap-3">
-                        <div className="rounded-lg bg-pink-50 p-2 text-pink-600"><UsersRound className="h-5 w-5" /></div>
-                        <div>
-                          <p className="text-xs font-bold text-slate-500 uppercase">إجمالي الإناث</p>
-                          <h4 className="text-2xl font-black text-slate-800">{kpi.total_female.toLocaleString()}</h4>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Toolbar */}
-                <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-                  <div className="relative w-full max-w-sm">
-                    <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="text"
-                      placeholder="ابحث بالعنوان أو الرمز الوظيفي..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full rounded-lg border-none bg-slate-50 pr-10 pl-4 py-2 text-sm text-slate-700 outline-none ring-1 ring-slate-200 focus:ring-2 focus:ring-indigo-500 transition"
-                    />
-                  </div>
-                  <div className="text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-lg">
-                    عرض {filteredMetrics.length} سجل
-                  </div>
-                </div>
-
-                {/* Data Grid */}
-                <div className="flex-1 overflow-auto rounded-xl border border-slate-200 bg-white shadow-sm">
-                  <table className="w-full text-right text-sm text-slate-600">
-                    <thead className="sticky top-0 bg-slate-50 text-xs font-bold uppercase text-slate-700 shadow-sm z-10">
-                      <tr>
-                        <th className="px-4 py-4 border-b border-slate-200">الوزارة / الدائرة</th>
-                        <th className="px-4 py-4 border-b border-slate-200">العنوان الوظيفي</th>
-                        <th className="px-4 py-4 border-b border-slate-200">الدرجة</th>
-                        <th className="px-4 py-4 border-b border-slate-200">الرمز</th>
-                        <th className="px-4 py-4 border-b border-slate-200 text-center">الذكور</th>
-                        <th className="px-4 py-4 border-b border-slate-200 text-center">الإناث</th>
-                        <th className="px-4 py-4 border-b border-slate-200 text-center">الشواغر</th>
-                        <th className="px-4 py-4 border-b border-slate-200 text-center">المجموع</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {filteredMetrics.map((m) => (
-                        <tr key={m.id} className="transition-colors hover:bg-slate-50">
-                          <td className="px-4 py-3 font-semibold text-slate-800">
-                            {m.ministry || "-"} 
-                            <span className="block text-xs font-normal text-slate-400">{m.directorate || "-"} ({m.approval_year || "-"})</span>
-                          </td>
-                          <td className="px-4 py-3 font-bold text-indigo-700">{m.job_title || "-"}</td>
-                          <td className="px-4 py-3"><span className="inline-flex rounded-md bg-slate-100 px-2 py-1 text-xs font-bold text-slate-600 border border-slate-200">{m.job_grade || "-"}</span></td>
-                          <td className="px-4 py-3 font-mono text-xs text-slate-500">{m.job_code || "-"}</td>
-                          <td className="px-4 py-3 text-center font-semibold">{m.male_count ?? "-"}</td>
-                          <td className="px-4 py-3 text-center font-semibold">{m.female_count ?? "-"}</td>
-                          <td className="px-4 py-3 text-center font-semibold text-amber-600">{m.vacant_count ?? "-"}</td>
-                          <td className="px-4 py-3 text-center font-bold text-emerald-600">{m.total_count ?? "-"}</td>
-                        </tr>
-                      ))}
-                      {filteredMetrics.length === 0 && (
-                        <tr>
-                          <td colSpan={8} className="px-4 py-12 text-center text-slate-500">
-                            لا توجد نتائج تطابق بحثك.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-
-              </div>
-            )}
+          <div className="flex h-full flex-col bg-slate-50/30 overflow-hidden">
+            <AnalyticsDashboard />
           </div>
         )}
       </div>
