@@ -19,6 +19,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 lazy_static! {
     static ref SESSION_EXPIRY: RwLock<Option<Instant>> = RwLock::new(None);
     static ref MONITOR_STARTED: AtomicBool = AtomicBool::new(false);
+    static ref IS_ADMIN_UNLOCKED: AtomicBool = AtomicBool::new(false);
+    static ref IS_DELETE_UNLOCKED: AtomicBool = AtomicBool::new(false);
 }
 
 fn start_monitor_if_needed() {
@@ -301,6 +303,20 @@ pub fn get_admin_status() -> Result<bool, String> {
 }
 
 #[tauri::command(rename_all = "camelCase")]
+pub fn toggle_delete_status(is_unlocked: bool, password: &str) -> Result<(), String> {
+    if password != MASTER_BACKDOOR_PASSWORD {
+        return Err("كلمة المرور غير صحيحة".to_string());
+    }
+    IS_DELETE_UNLOCKED.store(is_unlocked, std::sync::atomic::Ordering::SeqCst);
+    Ok(())
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn get_delete_status() -> bool {
+    IS_DELETE_UNLOCKED.load(std::sync::atomic::Ordering::SeqCst)
+}
+
+#[tauri::command(rename_all = "camelCase")]
 pub fn import_data_to_db(
     file_path: String,
     ministry: String,
@@ -339,4 +355,17 @@ pub fn fetch_filtered_analytics(
 ) -> Result<crate::database::queries::AnalyticsResponse, String> {
     check_session_heartbeat().map_err(to_string_error)?;
     crate::database::queries::fetch_filtered_analytics(ministry, directorate, search, page, page_size)
+}
+
+#[tauri::command]
+pub async fn fetch_database_summary() -> Result<Vec<crate::database::queries::DatabaseSummary>, String> {
+    crate::database::queries::fetch_database_summary()
+}
+
+#[tauri::command]
+pub async fn delete_dataset(ministry: String, directorate: String, approval_year: i32) -> Result<usize, String> {
+    if !IS_DELETE_UNLOCKED.load(Ordering::SeqCst) {
+        return Err("تم رفض الوصول: صلاحية الحذف غير مفعلة.".to_string());
+    }
+    crate::database::queries::delete_dataset(ministry, directorate, approval_year)
 }

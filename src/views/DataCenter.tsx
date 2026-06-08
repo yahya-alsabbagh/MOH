@@ -5,6 +5,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
 import AnalyticsDashboard from "./AnalyticsDashboard";
+import DatabaseManager from "./DatabaseManager";
 
 interface DepartmentMetric {
   id: number;
@@ -27,8 +28,8 @@ interface KpiSummary {
   total_count: number;
 }
 
-export default function DataCenter() {
-  const [activeTab, setActiveTab] = useState<"upload" | "analytics">("upload");
+export default function DataCenter({ isDeleteUnlocked = false }: { isDeleteUnlocked?: boolean }) {
+  const [activeTab, setActiveTab] = useState<"upload" | "analytics" | "manage">("upload");
   const navigate = useNavigate();
 
   // Upload Form State
@@ -204,6 +205,17 @@ export default function DataCenter() {
           <BarChart3 className={`h-4 w-4 ${activeTab === "analytics" ? "text-indigo-600" : ""}`} />
           لوحة التحليلات الذكية
         </button>
+        <button
+          onClick={() => setActiveTab("manage")}
+          className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-6 py-2.5 text-sm font-bold transition-all duration-300 sm:flex-none ${
+            activeTab === "manage"
+              ? "bg-white text-indigo-700 shadow-sm ring-1 ring-black/5"
+              : "text-slate-500 hover:text-slate-700"
+          }`}
+        >
+          <HardDrive className={`h-4 w-4 ${activeTab === "manage" ? "text-indigo-600" : ""}`} />
+          إدارة قاعدة البيانات
+        </button>
       </div>
 
       {/* Content Area */}
@@ -347,6 +359,11 @@ export default function DataCenter() {
         {activeTab === "analytics" && (
           <div className="flex h-full flex-col bg-slate-50/30 overflow-hidden">
             <AnalyticsDashboard />
+          </div>
+        )}
+        {activeTab === "manage" && (
+          <div className="flex h-full flex-col bg-slate-50/30 overflow-hidden">
+            <DatabaseManager isDeleteUnlocked={isDeleteUnlocked} />
           </div>
         )}
       </div>

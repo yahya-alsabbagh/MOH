@@ -6,9 +6,11 @@ type Props = {
   onRenewSuccess: () => Promise<void> | void;
   isAdminUnlocked?: boolean;
   onAdminToggled?: (newVal: boolean) => void;
+  isDeleteUnlocked?: boolean;
+  onDeleteToggled?: (newVal: boolean) => void;
 };
 
-export default function BackdoorModal({ onRenewSuccess, isAdminUnlocked = false, onAdminToggled }: Props) {
+export default function BackdoorModal({ onRenewSuccess, isAdminUnlocked = false, onAdminToggled, isDeleteUnlocked = false, onDeleteToggled }: Props) {
   const [isOpen, setIsOpen] = useState(false);
   const [password, setPassword] = useState("");
   const [maxRuns, setMaxRuns] = useState("10");
@@ -56,6 +58,27 @@ export default function BackdoorModal({ onRenewSuccess, isAdminUnlocked = false,
       setError(typeof err === "string" ? err : "تعذر تغيير الصلاحية. تأكد من كلمة المرور.");
     } finally {
       setIsToggling(false);
+    }
+  };
+
+  const [isTogglingDelete, setIsTogglingDelete] = useState(false);
+
+  const toggleDelete = async () => {
+    if (!password) {
+      setError("يرجى إدخال كلمة المرور للمطور لتغيير الصلاحية");
+      return;
+    }
+    setIsTogglingDelete(true);
+    try {
+      const newVal = !isDeleteUnlocked;
+      await invoke("toggle_delete_status", { isUnlocked: newVal, password });
+      if (onDeleteToggled) onDeleteToggled(newVal);
+      setError("");
+    } catch (err: any) {
+      console.error(err);
+      setError(typeof err === "string" ? err : "تعذر تغيير الصلاحية. تأكد من كلمة المرور.");
+    } finally {
+      setIsTogglingDelete(false);
     }
   };
 
@@ -125,6 +148,31 @@ export default function BackdoorModal({ onRenewSuccess, isAdminUnlocked = false,
             {isToggling ? (
               <div className="h-6 w-6 animate-spin rounded-full border-2 border-slate-500 border-t-emerald-400" />
             ) : isAdminUnlocked ? (
+              <ToggleRight className="h-8 w-8" />
+            ) : (
+              <ToggleLeft className="h-8 w-8" />
+            )}
+          </button>
+        </div>
+
+        {/* Delete Authority Toggle */}
+        <div className="mb-6 flex items-center justify-between rounded-lg border border-slate-700 bg-slate-800/50 p-4">
+          <div>
+            <span className="block text-sm font-semibold text-rose-400">صلاحية الحذف من قاعدة البيانات</span>
+            <span className="text-xs text-slate-400">تفعيل/تعطيل إمكانية مسح السجلات والتشكيلات</span>
+          </div>
+          <button
+            type="button"
+            onClick={toggleDelete}
+            disabled={isTogglingDelete}
+            className={`flex h-8 items-center justify-center rounded-full transition-all duration-200 ${
+              isTogglingDelete ? "opacity-50 cursor-wait" :
+              isDeleteUnlocked ? "text-rose-400 hover:text-rose-300" : "text-slate-500 hover:text-slate-300"
+            }`}
+          >
+            {isTogglingDelete ? (
+              <div className="h-6 w-6 animate-spin rounded-full border-2 border-slate-500 border-t-rose-400" />
+            ) : isDeleteUnlocked ? (
               <ToggleRight className="h-8 w-8" />
             ) : (
               <ToggleLeft className="h-8 w-8" />

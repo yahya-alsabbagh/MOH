@@ -39,7 +39,11 @@ fn main() {
             commands::fetch_all_metrics,
             commands::fetch_kpi_summary,
             commands::fetch_filter_options,
-            commands::fetch_filtered_analytics
+            commands::fetch_filtered_analytics,
+            commands::fetch_database_summary,
+            commands::delete_dataset,
+            commands::toggle_delete_status,
+            commands::get_delete_status
         ])
         .run(tauri::generate_context!())
         .expect("failed to run tauri application");

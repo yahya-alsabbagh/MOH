@@ -55,8 +55,9 @@ pub fn import_to_db(
     // If critical columns are missing, we can still proceed with nulls, but ideally we should have them.
     // Let's just proceed and extract what we can.
 
+    let _lock = crate::database::setup::DB_LOCK.lock().unwrap();
     let db_path = get_db_path()?;
-    let mut conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
+    let mut conn = Connection::open(&db_path).map_err(|e| format!("فشل في الاتصال بقاعدة البيانات: {}", e))?;
 
     let tx = conn.transaction().map_err(|e| e.to_string())?;
 

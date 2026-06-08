@@ -1,5 +1,11 @@
 use duckdb::{Connection, Result as DbResult};
 use std::path::PathBuf;
+use std::sync::Mutex;
+use lazy_static::lazy_static;
+
+lazy_static! {
+    pub static ref DB_LOCK: Mutex<()> = Mutex::new(());
+}
 
 pub fn get_db_path() -> Result<PathBuf, String> {
     // We use the same app_data_dir location as our license
@@ -19,6 +25,7 @@ pub fn get_db_path() -> Result<PathBuf, String> {
 }
 
 pub fn initialize_db() -> Result<(), String> {
+    let _lock = DB_LOCK.lock().unwrap();
     let path = get_db_path()?;
     let conn = Connection::open(&path).map_err(|e| e.to_string())?;
     

@@ -14,13 +14,17 @@ const appWindow = getCurrentWindow();
 export default function App() {
   const { isLoading, isLocked, isDecoyError, refresh } = useLicense();
   const [isAdminUnlocked, setIsAdminUnlocked] = useState(false);
+  const [isDeleteUnlocked, setIsDeleteUnlocked] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Read admin status ONCE on app start. Live updates come from onAdminToggled callback.
+  // Read admin & delete status ONCE on app start.
   useEffect(() => {
     invoke<boolean>("get_admin_status")
-      .then((status) => setIsAdminUnlocked(status))
+      .then(setIsAdminUnlocked)
+      .catch(console.error);
+    invoke<boolean>("get_delete_status")
+      .then(setIsDeleteUnlocked)
       .catch(console.error);
   }, []);
 
@@ -49,9 +53,12 @@ export default function App() {
           onRenewSuccess={() => {
             refresh();
             invoke<boolean>("get_admin_status").then(setIsAdminUnlocked).catch(console.error);
+            invoke<boolean>("get_delete_status").then(setIsDeleteUnlocked).catch(console.error);
           }}
           isAdminUnlocked={isAdminUnlocked}
           onAdminToggled={(val) => setIsAdminUnlocked(val)}
+          isDeleteUnlocked={isDeleteUnlocked}
+          onDeleteToggled={(val) => setIsDeleteUnlocked(val)}
         />
         {/* Custom title bar for locked screen */}
         <div
@@ -105,9 +112,12 @@ export default function App() {
         onRenewSuccess={() => {
           refresh();
           invoke<boolean>("get_admin_status").then(setIsAdminUnlocked).catch(console.error);
+          invoke<boolean>("get_delete_status").then(setIsDeleteUnlocked).catch(console.error);
         }}
         isAdminUnlocked={isAdminUnlocked}
         onAdminToggled={(val) => setIsAdminUnlocked(val)}
+        isDeleteUnlocked={isDeleteUnlocked}
+        onDeleteToggled={(val) => setIsDeleteUnlocked(val)}
       />
 
       {/* ── Custom Title Bar / Header ── */}
@@ -155,7 +165,7 @@ export default function App() {
       <main className="flex-1 overflow-y-auto p-5 pb-20">
         <Routes>
           <Route path="/" element={<Home />} />
-          <Route path="/data-center" element={<DataCenter />} />
+          <Route path="/data-center" element={<DataCenter isDeleteUnlocked={isDeleteUnlocked} />} />
         </Routes>
       </main>
 

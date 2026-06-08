@@ -25,7 +25,17 @@ pub struct KpiSummary {
     pub total_count: i64,
 }
 
+#[derive(Debug, Serialize)]
+pub struct DatabaseSummary {
+    pub ministry: Option<String>,
+    pub directorate: Option<String>,
+    pub approval_year: Option<i32>,
+    pub records_count: i64,
+    pub total_employees: i64,
+}
+
 pub fn fetch_all_metrics() -> Result<Vec<DepartmentMetric>, String> {
+    let _lock = crate::database::setup::DB_LOCK.lock().unwrap();
     let db_path = get_db_path()?;
     let conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
 
@@ -67,6 +77,7 @@ pub fn fetch_all_metrics() -> Result<Vec<DepartmentMetric>, String> {
 }
 
 pub fn fetch_kpi_summary() -> Result<KpiSummary, String> {
+    let _lock = crate::database::setup::DB_LOCK.lock().unwrap();
     let db_path = get_db_path()?;
     let conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
 
@@ -105,6 +116,55 @@ pub fn fetch_kpi_summary() -> Result<KpiSummary, String> {
     }
 }
 
+pub fn fetch_database_summary() -> Result<Vec<DatabaseSummary>, String> {
+    let _lock = crate::database::setup::DB_LOCK.lock().unwrap();
+    let db_path = get_db_path()?;
+    let conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
+
+    let mut stmt = conn
+        .prepare(
+            "SELECT ministry, directorate, approval_year, CAST(COUNT(*) AS BIGINT) as records_count, CAST(COALESCE(SUM(total_count), 0) AS BIGINT) as total_employees
+             FROM department_metrics 
+             GROUP BY ministry, directorate, approval_year
+             ORDER BY approval_year DESC, ministry ASC",
+        )
+        .map_err(|e| e.to_string())?;
+
+    let summaries_iter = stmt
+        .query_map([], |row| {
+            Ok(DatabaseSummary {
+                ministry: row.get(0)?,
+                directorate: row.get(1)?,
+                approval_year: row.get(2)?,
+                records_count: row.get(3)?,
+                total_employees: row.get(4)?,
+            })
+        })
+        .map_err(|e| e.to_string())?;
+
+    let mut result = Vec::new();
+    for summary in summaries_iter {
+        if let Ok(s) = summary {
+            result.push(s);
+        }
+    }
+
+    Ok(result)
+}
+
+pub fn delete_dataset(ministry: String, directorate: String, approval_year: i32) -> Result<usize, String> {
+    let _lock = crate::database::setup::DB_LOCK.lock().unwrap();
+    let db_path = get_db_path()?;
+    let conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
+    
+    let count = conn.execute(
+        "DELETE FROM department_metrics WHERE ministry = ? AND directorate = ? AND approval_year = ?",
+        duckdb::params![ministry, directorate, approval_year],
+    ).map_err(|e| e.to_string())?;
+
+    Ok(count)
+}
+
 #[derive(Debug, Serialize)]
 pub struct BarChartData {
     pub directorate: String,
@@ -134,6 +194,7 @@ pub struct AnalyticsResponse {
 }
 
 pub fn fetch_filter_options(ministry: Option<String>) -> Result<FilterOptions, String> {
+    let _lock = crate::database::setup::DB_LOCK.lock().unwrap();
     let db_path = get_db_path()?;
     let conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
 
@@ -179,6 +240,7 @@ pub fn fetch_filtered_analytics(
     page: usize,
     page_size: usize,
 ) -> Result<AnalyticsResponse, String> {
+    let _lock = crate::database::setup::DB_LOCK.lock().unwrap();
     let db_path = get_db_path()?;
     let conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
 
