@@ -27,11 +27,8 @@ pub fn initialize_db() -> Result<(), String> {
         [],
     ).map_err(|e| e.to_string())?;
 
-    // Drop during development to ensure schema updates cleanly
-    let _ = conn.execute("DROP TABLE IF EXISTS department_metrics", []);
-
     conn.execute(
-        "CREATE TABLE department_metrics (
+        "CREATE TABLE IF NOT EXISTS department_metrics (
             id BIGINT PRIMARY KEY DEFAULT nextval('seq_department_metrics_id'),
             ministry VARCHAR,
             directorate VARCHAR,

@@ -47,10 +47,10 @@ pub fn import_to_db(
     let title_idx = find_col(&["العنوان الوظيفي", "المسمى الوظيفي"]);
     let grade_idx = find_col(&["الدرجة", "الدرجة الوظيفية"]);
     let code_idx = find_col(&["الرمز", "الرمز الوظيفي"]);
-    let male_idx = find_col(&["الذكور"]);
-    let female_idx = find_col(&["الاناث", "الإناث"]);
-    let vacant_idx = find_col(&["الشواغر", "الشاغر"]);
-    let total_idx = find_col(&["المجموع"]);
+    let male_idx = find_col(&["ذكور", "ذكر", "الذكور"]);
+    let female_idx = find_col(&["اناث", "إناث", "الاناث", "الإناث", "انثى", "أنثى"]);
+    let vacant_idx = find_col(&["شاغر", "الشواغر", "الشاغر", "شواغر"]);
+    let total_idx = find_col(&["مجموع", "المجموع", "الكلي"]);
 
     // If critical columns are missing, we can still proceed with nulls, but ideally we should have them.
     // Let's just proceed and extract what we can.
@@ -82,8 +82,16 @@ pub fn import_to_db(
         match cell {
             Some(Data::Int(v)) => Some(*v as i32),
             Some(Data::Float(v)) => Some(*v as i32),
-            Some(Data::String(s)) => s.trim().parse::<i32>().ok(),
-            _ => None,
+            Some(Data::String(s)) => {
+                let trimmed = s.trim();
+                if trimmed.is_empty() || trimmed == "-" {
+                    Some(0)
+                } else {
+                    trimmed.parse::<i32>().ok().or(Some(0))
+                }
+            },
+            Some(Data::Empty) => Some(0),
+            _ => Some(0),
         }
     };
 

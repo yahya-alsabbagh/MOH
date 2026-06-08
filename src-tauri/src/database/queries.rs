@@ -201,8 +201,8 @@ pub fn fetch_filtered_analytics(
 
     if let Some(s) = search {
         if !s.is_empty() {
-            conditions.push("job_title LIKE ?".to_string());
-            params.push(format!("%{}%", s));
+            conditions.push("job_title = ?".to_string());
+            params.push(s);
         }
     }
 
