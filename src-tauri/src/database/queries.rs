@@ -34,6 +34,19 @@ pub struct DatabaseSummary {
     pub total_employees: i64,
 }
 
+#[derive(Debug, Serialize, Clone)]
+pub struct DeptInfo {
+    pub dept_code: i32,
+    pub dept_name: String,
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub struct MinistryHierarchy {
+    pub ministry_code: i32,
+    pub ministry_name: String,
+    pub departments: Vec<DeptInfo>,
+}
+
 pub fn fetch_all_metrics() -> Result<Vec<DepartmentMetric>, String> {
     let _lock = crate::database::setup::DB_LOCK.lock().unwrap();
     let db_path = get_db_path()?;
@@ -44,6 +57,8 @@ pub fn fetch_all_metrics() -> Result<Vec<DepartmentMetric>, String> {
             "SELECT id, ministry, directorate, approval_year, job_title, job_grade, job_code, 
                     male_count, female_count, vacant_count, total_count 
              FROM department_metrics 
+             WHERE (job_title IS NULL OR (job_title NOT LIKE 'مجموع %' AND job_title NOT LIKE 'المجموع %' AND job_title != 'المجموع' AND job_title NOT LIKE '%مجموع كلي%' AND job_title NOT LIKE '%مجموع الدرجة%' AND job_title NOT LIKE '%مجموع درجة%'))
+             AND (job_grade IS NULL OR (job_grade NOT LIKE 'مجموع %' AND job_grade NOT LIKE 'المجموع %' AND job_grade != 'المجموع' AND job_grade NOT LIKE '%مجموع كلي%'))
              ORDER BY job_title ASC",
         )
         .map_err(|e| e.to_string())?;
@@ -81,16 +96,16 @@ pub fn fetch_kpi_summary() -> Result<KpiSummary, String> {
     let db_path = get_db_path()?;
     let conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
 
-    let mut stmt = conn
-        .prepare(
-            "SELECT 
-                CAST(COALESCE(SUM(male_count), 0) AS BIGINT), 
-                CAST(COALESCE(SUM(female_count), 0) AS BIGINT), 
-                CAST(COALESCE(SUM(vacant_count), 0) AS BIGINT), 
-                CAST(COALESCE(SUM(total_count), 0) AS BIGINT) 
-             FROM department_metrics",
-        )
-        .map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare(
+        "SELECT 
+            CAST(COALESCE(SUM(male_count), 0) AS BIGINT), 
+            CAST(COALESCE(SUM(female_count), 0) AS BIGINT), 
+            CAST(COALESCE(SUM(vacant_count), 0) AS BIGINT), 
+            CAST(COALESCE(SUM(total_count), 0) AS BIGINT) 
+         FROM department_metrics
+         WHERE (job_title IS NULL OR (job_title NOT LIKE 'مجموع %' AND job_title NOT LIKE 'المجموع %' AND job_title != 'المجموع' AND job_title NOT LIKE '%مجموع كلي%' AND job_title NOT LIKE '%مجموع الدرجة%' AND job_title NOT LIKE '%مجموع درجة%'))
+         AND (job_grade IS NULL OR (job_grade NOT LIKE 'مجموع %' AND job_grade NOT LIKE 'المجموع %' AND job_grade != 'المجموع' AND job_grade NOT LIKE '%مجموع كلي%'))"
+    ).map_err(|e| e.to_string())?;
 
     let mut rows = stmt.query([]).map_err(|e| e.to_string())?;
 
@@ -125,6 +140,8 @@ pub fn fetch_database_summary() -> Result<Vec<DatabaseSummary>, String> {
         .prepare(
             "SELECT ministry, directorate, approval_year, CAST(COUNT(*) AS BIGINT) as records_count, CAST(COALESCE(SUM(total_count), 0) AS BIGINT) as total_employees
              FROM department_metrics 
+             WHERE (job_title IS NULL OR (job_title NOT LIKE 'مجموع %' AND job_title NOT LIKE 'المجموع %' AND job_title != 'المجموع' AND job_title NOT LIKE '%مجموع كلي%' AND job_title NOT LIKE '%مجموع الدرجة%' AND job_title NOT LIKE '%مجموع درجة%'))
+             AND (job_grade IS NULL OR (job_grade NOT LIKE 'مجموع %' AND job_grade NOT LIKE 'المجموع %' AND job_grade != 'المجموع' AND job_grade NOT LIKE '%مجموع كلي%'))
              GROUP BY ministry, directorate, approval_year
              ORDER BY approval_year DESC, ministry ASC",
         )
@@ -268,6 +285,10 @@ pub fn fetch_filtered_analytics(
         }
     }
 
+    // Exclude garbage total rows that might have been imported previously
+    conditions.push("(job_title IS NULL OR (job_title NOT LIKE 'مجموع %' AND job_title NOT LIKE 'المجموع %' AND job_title != 'المجموع' AND job_title NOT LIKE '%مجموع كلي%' AND job_title NOT LIKE '%مجموع الدرجة%' AND job_title NOT LIKE '%مجموع درجة%'))".to_string());
+    conditions.push("(job_grade IS NULL OR (job_grade NOT LIKE 'مجموع %' AND job_grade NOT LIKE 'المجموع %' AND job_grade != 'المجموع' AND job_grade NOT LIKE '%مجموع كلي%'))".to_string());
+
     let where_clause = conditions.join(" AND ");
 
     // 1. Fetch KPIs
@@ -369,4 +390,59 @@ pub fn fetch_filtered_analytics(
         grid_data,
         total_records,
     })
+}
+
+pub fn fetch_hierarchy_options() -> Result<Vec<MinistryHierarchy>, String> {
+    let _lock = crate::database::setup::DB_LOCK.lock().unwrap();
+    let db_path = get_db_path()?;
+    let conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
+
+    let mut stmt = conn.prepare(
+        "SELECT ministry_code, ministry_name, dept_code, dept_name 
+         FROM hierarchy_lookup 
+         ORDER BY ministry_code, dept_code"
+    ).map_err(|e| e.to_string())?;
+
+    let rows_iter = stmt.query_map([], |row| {
+        Ok((
+            row.get::<_, i32>(0)?,
+            row.get::<_, String>(1)?,
+            row.get::<_, i32>(2)?,
+            row.get::<_, String>(3)?
+        ))
+    }).map_err(|e| e.to_string())?;
+
+    let mut map: std::collections::BTreeMap<i32, MinistryHierarchy> = std::collections::BTreeMap::new();
+
+    for row in rows_iter {
+        if let Ok((ministry_code, ministry_name, dept_code, dept_name)) = row {
+            let entry = map.entry(ministry_code).or_insert_with(|| MinistryHierarchy {
+                ministry_code,
+                ministry_name,
+                departments: Vec::new(),
+            });
+            entry.departments.push(DeptInfo { dept_code, dept_name });
+        }
+    }
+
+    Ok(map.into_values().collect())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_fetch_hierarchy() {
+        crate::database::setup::initialize_db().unwrap();
+        let opts = fetch_hierarchy_options().unwrap();
+        println!("Hierarchy count: {}", opts.len());
+        for opt in opts.iter().take(2) {
+            println!("Ministry: {} - {}", opt.ministry_code, opt.ministry_name);
+            for dept in opt.departments.iter().take(2) {
+                println!("  Dept: {} - {}", dept.dept_code, dept.dept_name);
+            }
+        }
+        assert!(opts.len() > 0, "Hierarchy is empty!");
+    }
 }

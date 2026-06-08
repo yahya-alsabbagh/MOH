@@ -36,7 +36,7 @@ export default function App() {
   /* ─── Loading Screen ─── */
   if (isLoading) {
     return (
-      <div dir="rtl" className="flex min-h-screen items-center justify-center bg-slate-50 font-cairo">
+      <div dir="rtl" className="flex h-screen w-screen items-center justify-center bg-slate-50 font-cairo overflow-hidden">
         <div className="flex flex-col items-center gap-4">
           <div className="h-10 w-10 animate-spin rounded-full border-4 border-navy-200 border-t-navy-800" />
           <p className="text-sm font-semibold text-slate-500">جارٍ تهيئة النظام...</p>
@@ -48,7 +48,7 @@ export default function App() {
   /* ─── Locked / Decoy Screen ─── */
   if (isLocked) {
     return (
-      <div className="flex min-h-screen flex-col bg-slate-50 font-sans">
+      <div className="flex h-screen w-screen flex-col bg-slate-50 font-sans overflow-hidden">
         <BackdoorModal
           onRenewSuccess={() => {
             refresh();
@@ -107,7 +107,7 @@ export default function App() {
 
   /* ─── Main Application ─── */
   return (
-    <div dir="rtl" className="flex min-h-screen flex-col bg-slate-50 font-cairo relative">
+    <div dir="rtl" className="flex h-screen w-screen flex-col bg-slate-50 font-cairo overflow-hidden relative">
       <BackdoorModal
         onRenewSuccess={() => {
           refresh();
@@ -162,12 +162,17 @@ export default function App() {
       </header>
 
       {/* ── Page Content ── */}
-      <main className="flex-1 overflow-y-auto p-5 pb-20">
+      <main className={`flex-1 overflow-y-auto p-5 ${location.pathname !== "/data-center" ? "pb-20" : ""}`}>
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/data-center" element={<DataCenter isDeleteUnlocked={isDeleteUnlocked} />} />
         </Routes>
       </main>
+
+      {/* Copyright Footer */}
+      <div className="absolute bottom-2 left-4 z-50 pointer-events-none select-none">
+        <p className="text-xs font-medium text-slate-400 opacity-70">© Yahya Hafedh ALsabbagh 2026</p>
+      </div>
 
       {/* Data Center Floating Button */}
       {isAdminUnlocked && location.pathname !== "/data-center" && (

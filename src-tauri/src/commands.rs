@@ -369,3 +369,8 @@ pub async fn delete_dataset(ministry: String, directorate: String, approval_year
     }
     crate::database::queries::delete_dataset(ministry, directorate, approval_year)
 }
+
+#[tauri::command]
+pub async fn fetch_hierarchy_options() -> Result<Vec<crate::database::queries::MinistryHierarchy>, String> {
+    crate::database::queries::fetch_hierarchy_options()
+}

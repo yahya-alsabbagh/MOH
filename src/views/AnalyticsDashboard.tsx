@@ -126,7 +126,7 @@ export default function AnalyticsDashboard() {
   const totalPages = data ? Math.ceil(data.total_records / pageSize) : 0;
 
   return (
-    <div className="flex h-full flex-col p-6 gap-6 overflow-hidden">
+    <div className="flex flex-col p-6 gap-6">
       {/* 1. Command Hub */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm shrink-0">
         <div>

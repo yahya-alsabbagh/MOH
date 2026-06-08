@@ -61,12 +61,23 @@ pub fn import_to_db(
 
     let tx = conn.transaction().map_err(|e| e.to_string())?;
 
-    // Delete existing records for the same ministry/directorate/year to prevent duplicates
+    // Check if records for the same ministry/directorate/year already exist
     let parsed_year_check = year.parse::<i32>().unwrap_or(0);
-    tx.execute(
-        "DELETE FROM department_metrics WHERE ministry = ? AND directorate = ? AND approval_year = ?",
-        duckdb::params![ministry, directorate, parsed_year_check],
+    
+    let mut check_stmt = tx.prepare(
+        "SELECT COUNT(*) FROM department_metrics WHERE ministry = ? AND directorate = ? AND approval_year = ?"
     ).map_err(|e| e.to_string())?;
+    
+    let existing_count: i64 = check_stmt.query_row(
+        duckdb::params![ministry, directorate, parsed_year_check],
+        |row| row.get(0)
+    ).unwrap_or(0);
+    
+    drop(check_stmt);
+
+    if existing_count > 0 {
+        return Err("هذه الدائرة لا يمكن ادخالها لانه تم ادخالها مسبقا!".to_string());
+    }
 
     let mut stmt = tx.prepare(
         "INSERT INTO department_metrics (
@@ -116,6 +127,43 @@ pub fn import_to_db(
 
         // Skip completely empty rows
         if job_title.is_none() && job_grade.is_none() && job_code.is_none() {
+            continue;
+        }
+
+        // Skip "Total" summary rows by checking EVERY cell in the row (useful for merged cells)
+        let skip_keywords = [
+            "مجموع كلي", "مجموع درجة", "المجموع الكلي", "المجموع العام", 
+            "مجموع الدرجة", "المجموع", "مجموع الدرجه", "مجموع درجه"
+        ];
+        let mut has_skip_keyword = false;
+        for cell in row {
+            if let Some(s) = cell.get_string() {
+                let clean_s = s.replace("   ", " ").replace("  ", " ").trim().to_string();
+                
+                // If it is exactly "المجموع"
+                if clean_s == "المجموع" {
+                    has_skip_keyword = true;
+                    break;
+                }
+                
+                // Check if it contains any of the summary phrases
+                for kw in skip_keywords.iter() {
+                    if clean_s.contains(kw) {
+                        has_skip_keyword = true;
+                        break;
+                    }
+                }
+                
+                // If it starts with "مجموع " (with space) to catch "مجموع التاسعة" etc.
+                if clean_s.starts_with("مجموع ") || clean_s.starts_with("المجموع ") {
+                    has_skip_keyword = true;
+                    break;
+                }
+            }
+            if has_skip_keyword { break; }
+        }
+
+        if has_skip_keyword {
             continue;
         }
 

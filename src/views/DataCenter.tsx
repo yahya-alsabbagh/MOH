@@ -6,6 +6,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
 import AnalyticsDashboard from "./AnalyticsDashboard";
 import DatabaseManager from "./DatabaseManager";
+import SearchableCombobox from "../components/SearchableCombobox";
 
 interface DepartmentMetric {
   id: number;
@@ -26,6 +27,17 @@ interface KpiSummary {
   total_female: number;
   total_vacant: number;
   total_count: number;
+}
+
+interface DeptInfo {
+  dept_code: number;
+  dept_name: string;
+}
+
+interface MinistryHierarchy {
+  ministry_code: number;
+  ministry_name: string;
+  departments: DeptInfo[];
 }
 
 export default function DataCenter({ isDeleteUnlocked = false }: { isDeleteUnlocked?: boolean }) {
@@ -50,17 +62,17 @@ export default function DataCenter({ isDeleteUnlocked = false }: { isDeleteUnloc
   const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
+  // Hierarchy State
+  const [hierarchy, setHierarchy] = useState<MinistryHierarchy[]>([]);
+
   // Generate years from 2000 to 2090
   const years = Array.from({ length: 91 }, (_, i) => 2000 + i);
 
-  // Placeholder Ministries
-  const ministries = [
-    "وزارة الصحة",
-    "وزارة التربية",
-    "وزارة التعليم العالي",
-    "وزارة الداخلية",
-    "وزارة الدفاع",
-  ];
+  useEffect(() => {
+    invoke<MinistryHierarchy[]>("fetch_hierarchy_options")
+      .then(setHierarchy)
+      .catch(err => console.error("Failed to load hierarchy:", err));
+  }, []);
 
   useEffect(() => {
     const unlistenPromise = getCurrentWindow().onDragDropEvent((event) => {
@@ -160,7 +172,7 @@ export default function DataCenter({ isDeleteUnlocked = false }: { isDeleteUnloc
   }, [metrics, searchQuery]);
 
   return (
-    <div className="mx-auto flex h-full w-full max-w-7xl flex-col gap-5 pb-10">
+    <div className="mx-auto flex min-h-full w-full max-w-7xl flex-col gap-5">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-slate-200 pb-4">
         <div className="flex items-center gap-3">
@@ -219,9 +231,9 @@ export default function DataCenter({ isDeleteUnlocked = false }: { isDeleteUnloc
       </div>
 
       {/* Content Area */}
-      <div className="flex-1 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden flex flex-col">
+      <div className="flex-1 rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col">
         {activeTab === "upload" && (
-          <div className="flex h-full flex-col p-6 sm:p-8 overflow-y-auto">
+          <div className="flex flex-1 flex-col p-6 sm:p-8">
             <div className="mb-8">
               <h3 className="text-lg font-bold text-slate-800">منصة رفع بيانات الموظفين</h3>
               <p className="text-sm text-slate-500">أدخل تفاصيل التشكيل وارفع ملف الإكسل ليتم تخزينه في قاعدة البيانات المركزية.</p>
@@ -257,16 +269,19 @@ export default function DataCenter({ isDeleteUnlocked = false }: { isDeleteUnloc
                     <Landmark className="h-4 w-4 text-slate-400" />
                     الوزارة أو الجهة غير المرتبطة بوزارة
                   </label>
-                  <select
+                  <SearchableCombobox
+                    options={hierarchy.map(h => ({ 
+                      value: h.ministry_name, 
+                      label: `${h.ministry_code.toString().padStart(2, '0')} - ${h.ministry_name}` 
+                    }))}
                     value={ministry}
-                    onChange={(e) => setMinistry(e.target.value)}
-                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
-                  >
-                    <option value="">— اختر الوزارة —</option>
-                    {ministries.map((m) => (
-                      <option key={m} value={m}>{m}</option>
-                    ))}
-                  </select>
+                    onChange={(val) => {
+                      setMinistry(val);
+                      setDirectorate(""); // Reset directorate when ministry changes
+                    }}
+                    placeholder="— اختر الوزارة —"
+                    searchPlaceholder="ابحث عن وزارة..."
+                  />
                 </div>
 
                 {/* Directorate */}
@@ -275,12 +290,20 @@ export default function DataCenter({ isDeleteUnlocked = false }: { isDeleteUnloc
                     <Building2 className="h-4 w-4 text-slate-400" />
                     الدائرة أو التشكيل
                   </label>
-                  <input
-                    type="text"
-                    placeholder="مثال: دائرة صحة الرصافة"
+                  <SearchableCombobox
+                    options={(hierarchy.find(h => h.ministry_name === ministry)?.departments || []).map(d => {
+                      const minCode = hierarchy.find(h => h.ministry_name === ministry)?.ministry_code || 0;
+                      const adminCode = `${minCode.toString().padStart(2, '0')}${d.dept_code.toString().padStart(2, '0')}`;
+                      return {
+                        value: d.dept_name,
+                        label: `${adminCode} - ${d.dept_name}`
+                      };
+                    })}
                     value={directorate}
-                    onChange={(e) => setDirectorate(e.target.value)}
-                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                    onChange={setDirectorate}
+                    placeholder="— اختر الدائرة —"
+                    searchPlaceholder="ابحث عن دائرة..."
+                    disabled={!ministry}
                   />
                 </div>
 
@@ -357,12 +380,12 @@ export default function DataCenter({ isDeleteUnlocked = false }: { isDeleteUnloc
         )}
 
         {activeTab === "analytics" && (
-          <div className="flex h-full flex-col bg-slate-50/30 overflow-hidden">
+          <div className="flex flex-1 flex-col bg-slate-50/30">
             <AnalyticsDashboard />
           </div>
         )}
         {activeTab === "manage" && (
-          <div className="flex h-full flex-col bg-slate-50/30 overflow-hidden">
+          <div className="flex flex-1 flex-col bg-slate-50/30">
             <DatabaseManager isDeleteUnlocked={isDeleteUnlocked} />
           </div>
         )}
