@@ -21,8 +21,13 @@ pub struct DepartmentMetric {
 pub struct KpiSummary {
     pub total_male: i64,
     pub total_female: i64,
-    pub total_vacant: i64,
     pub total_count: i64,
+}
+
+#[derive(Debug, Serialize)]
+pub struct PieChartData {
+    pub total_male: i64,
+    pub total_female: i64,
 }
 
 #[derive(Debug, Serialize)]
@@ -100,8 +105,7 @@ pub fn fetch_kpi_summary() -> Result<KpiSummary, String> {
         "SELECT 
             CAST(COALESCE(SUM(male_count), 0) AS BIGINT), 
             CAST(COALESCE(SUM(female_count), 0) AS BIGINT), 
-            CAST(COALESCE(SUM(vacant_count), 0) AS BIGINT), 
-            CAST(COALESCE(SUM(total_count), 0) AS BIGINT) 
+            CAST(COALESCE(SUM(male_count + female_count), 0) AS BIGINT) 
          FROM department_metrics
          WHERE (job_title IS NULL OR (job_title NOT LIKE 'مجموع %' AND job_title NOT LIKE 'المجموع %' AND job_title != 'المجموع' AND job_title NOT LIKE '%مجموع كلي%' AND job_title NOT LIKE '%مجموع الدرجة%' AND job_title NOT LIKE '%مجموع درجة%'))
          AND (job_grade IS NULL OR (job_grade NOT LIKE 'مجموع %' AND job_grade NOT LIKE 'المجموع %' AND job_grade != 'المجموع' AND job_grade NOT LIKE '%مجموع كلي%'))"
@@ -112,20 +116,17 @@ pub fn fetch_kpi_summary() -> Result<KpiSummary, String> {
     if let Some(row) = rows.next().map_err(|e| e.to_string())? {
         let total_male: i64 = row.get(0).unwrap_or(0);
         let total_female: i64 = row.get(1).unwrap_or(0);
-        let total_vacant: i64 = row.get(2).unwrap_or(0);
-        let total_count: i64 = row.get(3).unwrap_or(0);
+        let total_count: i64 = row.get(2).unwrap_or(0);
 
         Ok(KpiSummary {
             total_male,
             total_female,
-            total_vacant,
             total_count,
         })
     } else {
         Ok(KpiSummary {
             total_male: 0,
             total_female: 0,
-            total_vacant: 0,
             total_count: 0,
         })
     }
@@ -183,17 +184,20 @@ pub fn delete_dataset(ministry: String, directorate: String, approval_year: i32)
 }
 
 #[derive(Debug, Serialize)]
-pub struct BarChartData {
-    pub directorate: String,
-    pub total_vacant: i64,
-    pub total_count: i64,
+pub struct GradeDistributionData {
+    pub job_grade: String,
+    pub count: i64,
 }
 
 #[derive(Debug, Serialize)]
-pub struct PieChartData {
-    pub total_male: i64,
-    pub total_female: i64,
+pub struct GenderParityData {
+    pub job_title: String,
+    pub males: i64,
+    pub females: i64,
+    pub total: i64,
 }
+
+
 
 #[derive(Debug, Serialize)]
 pub struct FilterOptions {
@@ -204,10 +208,28 @@ pub struct FilterOptions {
 #[derive(Debug, Serialize)]
 pub struct AnalyticsResponse {
     pub kpis: KpiSummary,
-    pub bar_chart_data: Vec<BarChartData>,
     pub pie_chart_data: PieChartData,
+    pub grade_distribution: Vec<GradeDistributionData>,
+    pub gender_parity: Vec<GenderParityData>,
     pub grid_data: Vec<DepartmentMetric>,
     pub total_records: usize,
+}
+
+fn map_grade_to_arabic(grade: &str) -> String {
+    let g = grade.trim();
+    match g {
+        "1" => "الأولى".to_string(),
+        "2" => "الثانية".to_string(),
+        "3" => "الثالثة".to_string(),
+        "4" => "الرابعة".to_string(),
+        "5" => "الخامسة".to_string(),
+        "6" => "السادسة".to_string(),
+        "7" => "السابعة".to_string(),
+        "8" => "الثامنة".to_string(),
+        "9" => "التاسعة".to_string(),
+        "10" => "العاشرة".to_string(),
+        _ => g.to_string(),
+    }
 }
 
 pub fn fetch_filter_options(ministry: Option<String>) -> Result<FilterOptions, String> {
@@ -264,6 +286,8 @@ pub fn fetch_filtered_analytics(
     let mut conditions = vec!["1=1".to_string()];
     let mut params: Vec<String> = Vec::new();
 
+    let is_dept_selected = directorate.as_ref().map_or(false, |d| !d.is_empty());
+
     if let Some(m) = ministry {
         if !m.is_empty() {
             conditions.push("ministry = ?".to_string());
@@ -296,8 +320,7 @@ pub fn fetch_filtered_analytics(
         "SELECT 
             CAST(COALESCE(SUM(male_count), 0) AS BIGINT), 
             CAST(COALESCE(SUM(female_count), 0) AS BIGINT), 
-            CAST(COALESCE(SUM(vacant_count), 0) AS BIGINT), 
-            CAST(COALESCE(SUM(total_count), 0) AS BIGINT) 
+            CAST(COALESCE(SUM(male_count + female_count), 0) AS BIGINT) 
          FROM department_metrics WHERE {}",
          where_clause
     );
@@ -308,35 +331,69 @@ pub fn fetch_filtered_analytics(
     let mut kpis = KpiSummary {
         total_male: 0,
         total_female: 0,
-        total_vacant: 0,
         total_count: 0,
     };
 
     if let Some(row) = kpi_rows.next().map_err(|e| e.to_string())? {
         kpis.total_male = row.get(0).unwrap_or(0);
         kpis.total_female = row.get(1).unwrap_or(0);
-        kpis.total_vacant = row.get(2).unwrap_or(0);
-        kpis.total_count = row.get(3).unwrap_or(0);
+        kpis.total_count = row.get(2).unwrap_or(0);
     }
 
-    // 2. Bar Chart Data (grouped by directorate)
-    let bar_chart_query = format!(
-        "SELECT directorate, 
-            CAST(COALESCE(SUM(vacant_count), 0) AS BIGINT) as total_vacant,
-            CAST(COALESCE(SUM(total_count), 0) AS BIGINT) as total_count
-         FROM department_metrics WHERE {} AND directorate IS NOT NULL
-         GROUP BY directorate
-         ORDER BY total_count DESC",
+    // 2. Grade Distribution (Grade Pyramid)
+    let grade_dist_query = format!(
+        "SELECT job_grade, 
+            CAST(COALESCE(SUM(male_count + female_count), 0) AS BIGINT) as count
+         FROM department_metrics WHERE {} AND job_grade IS NOT NULL AND job_grade != ''
+         GROUP BY job_grade
+         ORDER BY CASE 
+            WHEN TRIM(REPLACE(job_grade, 'أ', 'ا')) IN ('عليا ا', 'عليا ا ') THEN 1
+            WHEN TRIM(job_grade) IN ('عليا ب', 'عليا ب ') THEN 2
+            WHEN TRIM(job_grade) IN ('1', 'الاولى', 'الأولى') THEN 3
+            WHEN TRIM(job_grade) IN ('2', 'الثانية') THEN 4
+            WHEN TRIM(job_grade) IN ('3', 'الثالثة') THEN 5
+            WHEN TRIM(job_grade) IN ('4', 'الرابعة') THEN 6
+            WHEN TRIM(job_grade) IN ('5', 'الخامسة') THEN 7
+            WHEN TRIM(job_grade) IN ('6', 'السادسة') THEN 8
+            WHEN TRIM(job_grade) IN ('7', 'السابعة') THEN 9
+            WHEN TRIM(job_grade) IN ('8', 'الثامنة') THEN 10
+            WHEN TRIM(job_grade) IN ('9', 'التاسعة') THEN 11
+            WHEN TRIM(job_grade) IN ('10', 'العاشرة') THEN 12
+            ELSE 99 END ASC",
          where_clause
     );
-    let mut bar_stmt = conn.prepare(&bar_chart_query).map_err(|e| e.to_string())?;
-    let mut bar_rows = bar_stmt.query(duckdb::params_from_iter(params.iter())).map_err(|e| e.to_string())?;
-    let mut bar_chart_data = Vec::new();
-    while let Some(row) = bar_rows.next().map_err(|e| e.to_string())? {
-        bar_chart_data.push(BarChartData {
-            directorate: row.get(0).unwrap_or_default(),
-            total_vacant: row.get(1).unwrap_or(0),
-            total_count: row.get(2).unwrap_or(0),
+    let mut grade_stmt = conn.prepare(&grade_dist_query).map_err(|e| e.to_string())?;
+    let mut grade_rows = grade_stmt.query(duckdb::params_from_iter(params.iter())).map_err(|e| e.to_string())?;
+    let mut grade_distribution = Vec::new();
+    while let Some(row) = grade_rows.next().map_err(|e| e.to_string())? {
+        let raw_grade: String = row.get(0).unwrap_or_default();
+        grade_distribution.push(GradeDistributionData {
+            job_grade: map_grade_to_arabic(&raw_grade),
+            count: row.get(1).unwrap_or(0),
+        });
+    }
+
+    // 3. Gender Parity (Top 10 Job Titles)
+    let parity_query = format!(
+        "SELECT job_title, 
+            CAST(COALESCE(SUM(male_count), 0) AS BIGINT) as males,
+            CAST(COALESCE(SUM(female_count), 0) AS BIGINT) as females,
+            CAST(COALESCE(SUM(male_count + female_count), 0) AS BIGINT) as total
+         FROM department_metrics WHERE {} AND job_title IS NOT NULL AND job_title != ''
+         GROUP BY job_title
+         ORDER BY total DESC
+         LIMIT 10",
+         where_clause
+    );
+    let mut parity_stmt = conn.prepare(&parity_query).map_err(|e| e.to_string())?;
+    let mut parity_rows = parity_stmt.query(duckdb::params_from_iter(params.iter())).map_err(|e| e.to_string())?;
+    let mut gender_parity = Vec::new();
+    while let Some(row) = parity_rows.next().map_err(|e| e.to_string())? {
+        gender_parity.push(GenderParityData {
+            job_title: row.get(0).unwrap_or_default(),
+            males: row.get(1).unwrap_or(0),
+            females: row.get(2).unwrap_or(0),
+            total: row.get(3).unwrap_or(0),
         });
     }
 
@@ -355,7 +412,20 @@ pub fn fetch_filtered_analytics(
         "SELECT id, ministry, directorate, approval_year, job_title, job_grade, job_code, 
                 male_count, female_count, vacant_count, total_count 
          FROM department_metrics WHERE {} 
-         ORDER BY job_title ASC 
+         ORDER BY CASE 
+            WHEN TRIM(REPLACE(job_grade, 'أ', 'ا')) IN ('عليا ا', 'عليا ا ') THEN 1
+            WHEN TRIM(job_grade) IN ('عليا ب', 'عليا ب ') THEN 2
+            WHEN TRIM(job_grade) IN ('1', 'الاولى', 'الأولى') THEN 3
+            WHEN TRIM(job_grade) IN ('2', 'الثانية') THEN 4
+            WHEN TRIM(job_grade) IN ('3', 'الثالثة') THEN 5
+            WHEN TRIM(job_grade) IN ('4', 'الرابعة') THEN 6
+            WHEN TRIM(job_grade) IN ('5', 'الخامسة') THEN 7
+            WHEN TRIM(job_grade) IN ('6', 'السادسة') THEN 8
+            WHEN TRIM(job_grade) IN ('7', 'السابعة') THEN 9
+            WHEN TRIM(job_grade) IN ('8', 'الثامنة') THEN 10
+            WHEN TRIM(job_grade) IN ('9', 'التاسعة') THEN 11
+            WHEN TRIM(job_grade) IN ('10', 'العاشرة') THEN 12
+            ELSE 99 END ASC, job_title ASC 
          LIMIT {} OFFSET {}",
          where_clause, page_size, offset
     );
@@ -365,13 +435,14 @@ pub fn fetch_filtered_analytics(
     let mut grid_data = Vec::new();
     
     while let Some(row) = grid_rows.next().map_err(|e| e.to_string())? {
+        let raw_grade: String = row.get(5).unwrap_or_default();
         grid_data.push(DepartmentMetric {
             id: row.get(0).unwrap_or(0),
             ministry: row.get(1).unwrap_or_default(),
             directorate: row.get(2).unwrap_or_default(),
             approval_year: row.get(3).unwrap_or_default(),
             job_title: row.get(4).unwrap_or_default(),
-            job_grade: row.get(5).unwrap_or_default(),
+            job_grade: Some(map_grade_to_arabic(&raw_grade)),
             job_code: row.get(6).unwrap_or_default(),
             male_count: row.get(7).unwrap_or_default(),
             female_count: row.get(8).unwrap_or_default(),
@@ -386,7 +457,8 @@ pub fn fetch_filtered_analytics(
             total_female: kpis.total_female,
         },
         kpis,
-        bar_chart_data,
+        grade_distribution,
+        gender_parity,
         grid_data,
         total_records,
     })
@@ -453,7 +525,7 @@ pub fn fetch_dataset_details(ministry: String, directorate: String, approval_yea
                 directorate: row.get(2)?,
                 approval_year: row.get(3)?,
                 job_title: row.get(4)?,
-                job_grade: row.get(5)?,
+                job_grade: row.get::<_, Option<String>>(5)?.map(|g| map_grade_to_arabic(&g)),
                 job_code: row.get(6)?,
                 male_count: row.get(7)?,
                 female_count: row.get(8)?,
