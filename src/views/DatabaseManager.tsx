@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { confirm } from "@tauri-apps/plugin-dialog";
-import { Trash2, ShieldAlert, Loader2, Database, AlertTriangle, Search } from "lucide-react";
+import { Trash2, ShieldAlert, Loader2, Database, AlertTriangle, Search, Settings } from "lucide-react";
+import DatasetEditorModal from "../components/DatasetEditorModal";
 
 interface DatabaseSummary {
   ministry: string | null;
@@ -16,6 +17,7 @@ export default function DatabaseManager({ isDeleteUnlocked = false }: { isDelete
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [editingSummary, setEditingSummary] = useState<DatabaseSummary | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
 
   const fetchSummary = async () => {
@@ -163,6 +165,18 @@ export default function DatabaseManager({ isDeleteUnlocked = false }: { isDelete
                     </td>
                     <td className="px-4 py-3 text-center">
                       <button
+                        onClick={() => setEditingSummary(summary)}
+                        disabled={!isDeleteUnlocked || isDeleting}
+                        className={`inline-flex items-center justify-center rounded-lg p-2 transition-all ml-2 ${
+                          !isDeleteUnlocked
+                            ? "cursor-not-allowed bg-slate-100 text-slate-400"
+                            : "bg-indigo-50 text-indigo-600 hover:bg-indigo-500 hover:text-white"
+                        }`}
+                        title={!isDeleteUnlocked ? "يتطلب تفعيل صلاحية التعديل" : "تعديل تفاصيل السجلات"}
+                      >
+                        <Settings className="h-4 w-4" />
+                      </button>
+                      <button
                         onClick={() => handleDelete(summary)}
                         disabled={!isDeleteUnlocked || isDeleting}
                         className={`inline-flex items-center justify-center rounded-lg p-2 transition-all ${
@@ -186,6 +200,18 @@ export default function DatabaseManager({ isDeleteUnlocked = false }: { isDelete
           </tbody>
         </table>
       </div>
+
+      {editingSummary && (
+        <DatasetEditorModal
+          ministry={editingSummary.ministry || ""}
+          directorate={editingSummary.directorate || ""}
+          approvalYear={editingSummary.approval_year || 0}
+          onClose={() => setEditingSummary(null)}
+          onSuccess={() => {
+            fetchSummary();
+          }}
+        />
+      )}
     </div>
   );
 }

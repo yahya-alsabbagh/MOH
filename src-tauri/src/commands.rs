@@ -374,3 +374,25 @@ pub async fn delete_dataset(ministry: String, directorate: String, approval_year
 pub async fn fetch_hierarchy_options() -> Result<Vec<crate::database::queries::MinistryHierarchy>, String> {
     crate::database::queries::fetch_hierarchy_options()
 }
+
+#[tauri::command]
+pub async fn fetch_dataset_details(ministry: String, directorate: String, approval_year: i32) -> Result<Vec<crate::database::queries::DepartmentMetric>, String> {
+    check_session_heartbeat().map_err(to_string_error)?;
+    crate::database::queries::fetch_dataset_details(ministry, directorate, approval_year)
+}
+
+#[tauri::command]
+pub async fn update_dataset_records(ministry: String, directorate: String, approval_year: i32, records: Vec<crate::database::queries::DepartmentMetric>) -> Result<usize, String> {
+    if !IS_DELETE_UNLOCKED.load(Ordering::SeqCst) {
+        return Err("تم رفض الوصول: صلاحية التعديل غير مفعلة.".to_string());
+    }
+    check_session_heartbeat().map_err(to_string_error)?;
+    crate::database::queries::update_dataset_records(ministry, directorate, approval_year, records)
+}
+
+#[tauri::command]
+pub async fn export_dataset_to_excel(output_path: String, ministry: String, directorate: String, approval_year: i32, records: Vec<crate::database::queries::DepartmentMetric>) -> Result<(), String> {
+    check_session_heartbeat().map_err(to_string_error)?;
+    crate::database::exporter::export_dataset(&output_path, &ministry, &directorate, approval_year, records)
+}
+

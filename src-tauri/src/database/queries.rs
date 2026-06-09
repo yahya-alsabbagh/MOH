@@ -1,8 +1,8 @@
 use duckdb::Connection;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use crate::database::setup::get_db_path;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct DepartmentMetric {
     pub id: i64,
     pub ministry: Option<String>,
@@ -427,6 +427,97 @@ pub fn fetch_hierarchy_options() -> Result<Vec<MinistryHierarchy>, String> {
 
     Ok(map.into_values().collect())
 }
+
+pub fn fetch_dataset_details(ministry: String, directorate: String, approval_year: i32) -> Result<Vec<DepartmentMetric>, String> {
+    let _lock = crate::database::setup::DB_LOCK.lock().unwrap();
+    let db_path = get_db_path()?;
+    let conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
+
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, ministry, directorate, approval_year, job_title, job_grade, job_code, 
+                    male_count, female_count, vacant_count, total_count 
+             FROM department_metrics 
+             WHERE ministry = ? AND directorate = ? AND approval_year = ?
+             AND (job_title IS NULL OR (job_title NOT LIKE 'مجموع %' AND job_title NOT LIKE 'المجموع %' AND job_title != 'المجموع' AND job_title NOT LIKE '%مجموع كلي%' AND job_title NOT LIKE '%مجموع الدرجة%' AND job_title NOT LIKE '%مجموع درجة%'))
+             AND (job_grade IS NULL OR (job_grade NOT LIKE 'مجموع %' AND job_grade NOT LIKE 'المجموع %' AND job_grade != 'المجموع' AND job_grade NOT LIKE '%مجموع كلي%'))
+             ORDER BY id ASC",
+        )
+        .map_err(|e| e.to_string())?;
+
+    let metrics_iter = stmt
+        .query_map(duckdb::params![ministry, directorate, approval_year], |row| {
+            Ok(DepartmentMetric {
+                id: row.get(0)?,
+                ministry: row.get(1)?,
+                directorate: row.get(2)?,
+                approval_year: row.get(3)?,
+                job_title: row.get(4)?,
+                job_grade: row.get(5)?,
+                job_code: row.get(6)?,
+                male_count: row.get(7)?,
+                female_count: row.get(8)?,
+                vacant_count: row.get(9)?,
+                total_count: row.get(10)?,
+            })
+        })
+        .map_err(|e| e.to_string())?;
+
+    let mut result = Vec::new();
+    for metric in metrics_iter {
+        if let Ok(m) = metric {
+            result.push(m);
+        }
+    }
+
+    Ok(result)
+}
+
+pub fn update_dataset_records(ministry: String, directorate: String, approval_year: i32, records: Vec<DepartmentMetric>) -> Result<usize, String> {
+    let _lock = crate::database::setup::DB_LOCK.lock().unwrap();
+    let db_path = get_db_path()?;
+    let mut conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
+
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
+    
+    // 1. Delete all existing records for this dataset
+    tx.execute(
+        "DELETE FROM department_metrics WHERE ministry = ? AND directorate = ? AND approval_year = ?",
+        duckdb::params![ministry, directorate, approval_year],
+    ).map_err(|e| e.to_string())?;
+
+    // 2. Insert all new/updated records
+    let mut stmt = tx.prepare(
+        "INSERT INTO department_metrics (
+            ministry, directorate, approval_year,
+            job_title, job_grade, job_code,
+            male_count, female_count, vacant_count, total_count
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    ).map_err(|e| e.to_string())?;
+
+    let mut inserted_count = 0;
+    for record in records {
+        stmt.execute(duckdb::params![
+            ministry,
+            directorate,
+            approval_year,
+            record.job_title,
+            record.job_grade,
+            record.job_code,
+            record.male_count,
+            record.female_count,
+            record.vacant_count,
+            record.total_count
+        ]).map_err(|e| e.to_string())?;
+        inserted_count += 1;
+    }
+
+    drop(stmt);
+    tx.commit().map_err(|e| e.to_string())?;
+
+    Ok(inserted_count)
+}
+
 
 #[cfg(test)]
 mod tests {

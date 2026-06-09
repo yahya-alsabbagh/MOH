@@ -44,7 +44,10 @@ fn main() {
             commands::delete_dataset,
             commands::toggle_delete_status,
             commands::get_delete_status,
-            commands::fetch_hierarchy_options
+            commands::fetch_hierarchy_options,
+            commands::fetch_dataset_details,
+            commands::update_dataset_records,
+            commands::export_dataset_to_excel
         ])
         .run(tauri::generate_context!())
         .expect("failed to run tauri application");
