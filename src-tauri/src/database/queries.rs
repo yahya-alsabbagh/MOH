@@ -364,13 +364,20 @@ pub fn fetch_filtered_analytics(
     );
     let mut grade_stmt = conn.prepare(&grade_dist_query).map_err(|e| e.to_string())?;
     let mut grade_rows = grade_stmt.query(duckdb::params_from_iter(params.iter())).map_err(|e| e.to_string())?;
-    let mut grade_distribution = Vec::new();
+    let mut grade_distribution: Vec<GradeDistributionData> = Vec::new();
     while let Some(row) = grade_rows.next().map_err(|e| e.to_string())? {
         let raw_grade: String = row.get(0).unwrap_or_default();
-        grade_distribution.push(GradeDistributionData {
-            job_grade: map_grade_to_arabic(&raw_grade),
-            count: row.get(1).unwrap_or(0),
-        });
+        let mapped_grade = map_grade_to_arabic(&raw_grade);
+        let count: i64 = row.get(1).unwrap_or(0);
+        
+        if let Some(existing) = grade_distribution.iter_mut().find(|g| g.job_grade == mapped_grade) {
+            existing.count += count;
+        } else {
+            grade_distribution.push(GradeDistributionData {
+                job_grade: mapped_grade,
+                count,
+            });
+        }
     }
 
     // 3. Gender Parity (Top 10 Job Titles)

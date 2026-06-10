@@ -107,7 +107,7 @@ export default function App() {
 
   /* ─── Main Application ─── */
   return (
-    <div dir="rtl" className="flex h-screen w-screen flex-col bg-slate-50 font-cairo overflow-hidden relative">
+    <div dir="rtl" className="flex h-screen w-screen flex-col bg-slate-50 font-cairo overflow-hidden relative print:h-auto print:w-auto print:overflow-visible">
       <BackdoorModal
         onRenewSuccess={() => {
           refresh();
@@ -121,7 +121,7 @@ export default function App() {
       />
 
       {/* ── Custom Title Bar / Header ── */}
-      <header data-tauri-drag-region className="flex h-14 w-full flex-shrink-0 items-center justify-between bg-navy-900 px-5 shadow-md">
+      <header data-tauri-drag-region className="flex h-14 w-full flex-shrink-0 items-center justify-between bg-navy-900 px-5 shadow-md print:hidden">
         {/* Left: System Name & Icon */}
         <div data-tauri-drag-region className="flex flex-1 items-center gap-3 select-none">
           <div data-tauri-drag-region className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10">
@@ -162,7 +162,7 @@ export default function App() {
       </header>
 
       {/* ── Page Content ── */}
-      <main className={`flex-1 overflow-y-auto p-5 ${location.pathname !== "/data-center" ? "pb-20" : ""}`}>
+      <main className={`flex-1 overflow-y-auto p-5 print:overflow-visible print:h-auto ${location.pathname !== "/data-center" ? "pb-20" : ""}`}>
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/data-center" element={<DataCenter isDeleteUnlocked={isDeleteUnlocked} />} />
@@ -170,7 +170,7 @@ export default function App() {
       </main>
 
       {/* Copyright Footer */}
-      <div className="absolute bottom-2 left-4 z-50 pointer-events-none select-none">
+      <div className="absolute bottom-2 left-4 z-50 pointer-events-none select-none print:hidden">
         <p className="text-xs font-medium text-slate-400 opacity-70">© Yahya Hafedh ALsabbagh 2026</p>
       </div>
 

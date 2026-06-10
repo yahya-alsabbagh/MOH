@@ -172,9 +172,9 @@ export default function DataCenter({ isDeleteUnlocked = false }: { isDeleteUnloc
   }, [metrics, searchQuery]);
 
   return (
-    <div className="mx-auto flex min-h-full w-full max-w-7xl flex-col gap-5">
+    <div className="mx-auto flex min-h-full w-full max-w-7xl flex-col gap-5 print:max-w-none print:overflow-visible print:h-auto">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-slate-200 pb-4">
+      <div className="flex items-center justify-between border-b border-slate-200 pb-4 print:hidden">
         <div className="flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-50 shadow-inner">
             <Database className="h-6 w-6 text-indigo-600" />
@@ -194,7 +194,7 @@ export default function DataCenter({ isDeleteUnlocked = false }: { isDeleteUnloc
       </div>
 
       {/* Segmented Tabs Control */}
-      <div className="flex w-full rounded-xl bg-slate-200/50 p-1.5 shadow-inner backdrop-blur-sm sm:w-fit">
+      <div className="flex w-full rounded-xl bg-slate-200/50 p-1.5 shadow-inner backdrop-blur-sm sm:w-fit print:hidden">
         <button
           onClick={() => setActiveTab("upload")}
           className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-6 py-2.5 text-sm font-bold transition-all duration-300 sm:flex-none ${
@@ -231,7 +231,7 @@ export default function DataCenter({ isDeleteUnlocked = false }: { isDeleteUnloc
       </div>
 
       {/* Content Area */}
-      <div className="flex-1 rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col">
+      <div className="flex-1 rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col print:overflow-visible print:h-auto print:border-none print:shadow-none">
         {activeTab === "upload" && (
           <div className="flex flex-1 flex-col p-6 sm:p-8">
             <div className="mb-8">

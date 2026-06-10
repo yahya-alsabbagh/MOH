@@ -40,3 +40,45 @@ select { cursor: pointer; }
 input:focus, select:focus, textarea:focus {
   outline: none;
 }
+
+/* Print Styles */
+@media print {
+  /* Force colors to print (backgrounds, SVG fills, etc.) */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  /* Ensure SVG charts are fully visible */
+  .recharts-wrapper,
+  .recharts-surface {
+    overflow: visible !important;
+  }
+
+  /* Ensure SVG text labels stay visible */
+  .recharts-label,
+  .recharts-label-list,
+  .recharts-text,
+  .recharts-cartesian-axis-tick-value,
+  .recharts-legend-item-text,
+  .recharts-pie-label-text {
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+
+  /* Maintain chart container dimensions */
+  .recharts-responsive-container {
+    min-height: 250px !important;
+    width: 100% !important;
+  }
+
+  /* Hide default browser headers/footers (URL, Date) */
+  @page {
+    margin: 0;
+  }
+
+  body {
+    padding: 1.5cm;
+  }
+}

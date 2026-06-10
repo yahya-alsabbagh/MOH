@@ -70,10 +70,12 @@ export default function AnalyticsDashboard() {
   const [searchQuery, setSearchQuery] = useState<string>("");
   
   const [page, setPage] = useState(0);
-  const [pageSize] = useState(50);
+  const [pageSize] = useState(9999999);
   
   const [data, setData] = useState<AnalyticsResponse | null>(null);
+  const [allGridData, setAllGridData] = useState<DepartmentMetric[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isPrintMode, setIsPrintMode] = useState(false);
 
   // Fetch filter options
   useEffect(() => {
@@ -123,8 +125,27 @@ export default function AnalyticsDashboard() {
     setPage(0);
   }, [selectedMinistry, selectedDirectorate, searchQuery]);
 
-  const handlePrint = () => {
-    window.print();
+  const handlePrint = async () => {
+    // Fetch ALL data for printing (no pagination)
+    try {
+      const allData = await invoke<AnalyticsResponse>("fetch_filtered_analytics", {
+        ministry: selectedMinistry || null,
+        directorate: selectedDirectorate || null,
+        search: searchQuery || null,
+        page: 0,
+        pageSize: 9999999,
+      });
+      setAllGridData(allData.grid_data);
+      setIsPrintMode(true);
+      // Wait for charts to fully re-render SVG labels, then print
+      setTimeout(() => {
+        window.print();
+        setIsPrintMode(false);
+      }, 1500);
+    } catch (err) {
+      console.error(err);
+      window.print();
+    }
   };
 
   const pieData = useMemo(() => {
@@ -140,7 +161,15 @@ export default function AnalyticsDashboard() {
   const totalPages = data ? Math.ceil(data.total_records / pageSize) : 0;
 
   return (
-    <div className="flex flex-col p-6 gap-6 print:p-0 print:bg-white print:gap-4 print-container">
+    <div className="flex flex-col p-6 gap-6 print:p-0 print:bg-white print:gap-4 print:overflow-visible print:h-auto">
+      {/* Print-only Header */}
+      <div className="hidden print:flex flex-col border-b-2 border-slate-800 pb-2 px-4">
+        <div className="flex justify-between font-bold text-lg">
+          <span>الوزارة: {selectedMinistry || 'كل الوزارات'}</span>
+          <span>الدائرة: {selectedDirectorate || 'كل الدوائر'}</span>
+        </div>
+      </div>
+
       {/* 1. Command Hub & Print Button */}
       <div className="flex flex-col md:flex-row gap-4 shrink-0 print:hidden">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm flex-1">
@@ -199,7 +228,7 @@ export default function AnalyticsDashboard() {
       ) : data ? (
         <>
           {/* 2. KPIs & Charts */}
-          <div className="flex flex-col gap-6 shrink-0 overflow-y-auto">
+          <div className="flex flex-col gap-6 shrink-0 overflow-y-auto print:overflow-visible print:h-auto">
             {/* KPI Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-5 shadow-sm">
@@ -231,88 +260,134 @@ export default function AnalyticsDashboard() {
               </div>
             </div>
             {/* Charts Row 1: Grade Pyramid & Gender Parity */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 min-h-[400px]">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 min-h-[400px] print:break-inside-avoid">
               {/* Grade Pyramid */}
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-5 shadow-sm flex flex-col">
                 <h4 className="text-sm font-bold text-slate-700 mb-4">هرم التدرج الوظيفي</h4>
-                <div className="flex-1 min-h-[300px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={data.grade_distribution}
-                      layout="vertical"
-                      margin={{ top: 5, right: 70, left: 60, bottom: 5 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#e2e8f0" />
-                      <XAxis type="number" hide />
-                      <YAxis dataKey="job_grade" type="category" axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#000000', fontWeight: 'bold'}} width={120} orientation="right" tickMargin={20} />
-                      <RechartsTooltip cursor={{fill: '#f1f5f9'}} contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}} />
-                      <Bar dataKey="count" name="العدد" fill="#6366f1" radius={[0, 4, 4, 0]} barSize={20}>
-                        <LabelList dataKey="count" position="inside" fill="#ffffff" fontSize={11} fontWeight="bold" formatter={(val: any) => Number(val) > 0 ? Number(val).toLocaleString() : ''} />
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
+                <div className="flex-1 min-h-[300px] flex" dir="ltr">
+                  <div className="flex-1">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={data.grade_distribution}
+                        layout="vertical"
+                        margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#e2e8f0" />
+                        <XAxis type="number" hide />
+                        <YAxis type="category" dataKey="job_grade" hide />
+                        <RechartsTooltip cursor={{fill: '#f1f5f9'}} contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}} />
+                        <Bar isAnimationActive={!isPrintMode} dataKey="count" name="العدد" fill="#6366f1" radius={[0, 4, 4, 0]} barSize={18}>
+                          <LabelList dataKey="count" position="right" fill="#1e293b" fontSize={11} fontWeight="bold" formatter={(val: any) => Number(val) > 0 ? Number(val).toLocaleString() : ''} />
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="flex flex-col justify-around border-l-2 border-slate-300 pr-0 pl-3 shrink-0" style={{width: '80px'}}>
+                    {data.grade_distribution.map((item, i) => (
+                      <span key={i} className="text-xs font-bold text-slate-800 text-right leading-none" dir="rtl">{item.job_grade}</span>
+                    ))}
+                  </div>
                 </div>
               </div>
               
               {/* Gender Parity */}
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-5 shadow-sm flex flex-col">
                 <h4 className="text-sm font-bold text-slate-700 mb-4">التركز النوعي (أعلى 10 وظائف)</h4>
-                <div className="flex-1 min-h-[300px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={data.gender_parity}
-                      layout="vertical"
-                      margin={{ top: 5, right: 70, left: 80, bottom: 5 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#e2e8f0" />
-                      <XAxis type="number" hide />
-                      <YAxis dataKey="job_title" type="category" axisLine={false} tickLine={false} tick={{fontSize: 11, fill: '#000000', fontWeight: 'bold'}} width={150} orientation="right" tickMargin={20} />
-                      <RechartsTooltip cursor={{fill: '#f1f5f9'}} contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}} />
-                      <Legend verticalAlign="top" height={36} wrapperStyle={{fontSize: 12}} />
-                      <Bar dataKey="males" name="ذكور" stackId="a" fill="#3b82f6" radius={[0, 0, 0, 0]} barSize={20}>
-                        <LabelList dataKey="males" position="inside" fill="#fff" fontSize={10} formatter={(val: any) => Number(val) > 0 ? Number(val).toLocaleString() : ''} />
-                      </Bar>
-                      <Bar dataKey="females" name="إناث" stackId="a" fill="#ec4899" radius={[0, 4, 4, 0]} barSize={20}>
-                        <LabelList dataKey="females" position="inside" fill="#fff" fontSize={10} formatter={(val: any) => Number(val) > 0 ? Number(val).toLocaleString() : ''} />
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
+                <div className="flex-1 min-h-[300px] flex" dir="ltr">
+                  <div className="flex-1">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={data.gender_parity}
+                        layout="vertical"
+                        margin={{ top: 30, right: 5, left: 5, bottom: 5 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#e2e8f0" />
+                        <XAxis type="number" hide />
+                        <YAxis type="category" dataKey="job_title" hide />
+                        <RechartsTooltip cursor={{fill: '#f1f5f9'}} contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}} />
+                        <Legend verticalAlign="top" height={30} wrapperStyle={{fontSize: 12}} />
+                        <Bar isAnimationActive={!isPrintMode} dataKey="males" name="ذكور" stackId="a" fill="#3b82f6" radius={[0, 0, 0, 0]} barSize={18}>
+                          <LabelList dataKey="males" position="inside" fill="#000" fontSize={9} fontWeight="bold" formatter={(val: any) => Number(val) > 0 ? Number(val).toLocaleString() : ''} />
+                        </Bar>
+                        <Bar isAnimationActive={!isPrintMode} dataKey="females" name="إناث" stackId="a" fill="#ec4899" radius={[0, 4, 4, 0]} barSize={18}>
+                          <LabelList dataKey="females" position="inside" fill="#000" fontSize={9} fontWeight="bold" formatter={(val: any) => Number(val) > 0 ? Number(val).toLocaleString() : ''} />
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="flex flex-col justify-around border-l-2 border-slate-300 pr-0 pl-3 shrink-0 pt-14 pb-1" style={{width: '120px'}}>
+                    {data.gender_parity.map((item, i) => (
+                      <span key={i} className="text-[10px] font-bold text-slate-800 text-right leading-none" dir="rtl">{item.job_title}</span>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* Charts Row 2: PieChart */}
-            <div className="flex min-h-[300px]">
+            <div className="flex min-h-[300px] print:break-inside-avoid">
               <div className="flex-1 rounded-xl border border-slate-200 bg-slate-50 p-5 shadow-sm flex flex-col">
                 <h4 className="text-sm font-bold text-slate-700 mb-4 text-center">نسبة النوع</h4>
-                <div className="flex-1 min-h-[250px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={pieData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={60}
-                        outerRadius={90}
-                        paddingAngle={5}
-                        dataKey="value"
-                      >
-                        {pieData.map((_, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <RechartsTooltip />
-                      <Legend verticalAlign="bottom" height={36} wrapperStyle={{fontSize: 14}} />
-                    </PieChart>
-                  </ResponsiveContainer>
+                <div className="flex-1 flex items-center justify-center gap-8 flex-wrap">
+                  {/* Donut Chart */}
+                  <div style={{width: 200, height: 200}} dir="ltr">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          isAnimationActive={!isPrintMode}
+                          data={pieData}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={55}
+                          outerRadius={80}
+                          paddingAngle={5}
+                          dataKey="value"
+                          label={(props: any) => {
+                            const { cx, cy, midAngle, innerRadius, outerRadius, percent } = props;
+                            const RADIAN = Math.PI / 180;
+                            const radius = innerRadius + (outerRadius - innerRadius) / 2;
+                            const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                            const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                            return (
+                              <text x={x} y={y} fill="#fff" textAnchor="middle" dominantBaseline="central" fontSize={11} fontWeight="bold">
+                                {`${((percent || 0) * 100).toFixed(1)}%`}
+                              </text>
+                            );
+                          }}
+                        >
+                          {pieData.map((_, index) => (
+                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <RechartsTooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  {/* Stats Cards */}
+                  <div className="flex flex-col gap-4">
+                    {pieData.map((entry, i) => {
+                      const total = pieData.reduce((s, e) => s + e.value, 0);
+                      const pct = total > 0 ? ((entry.value / total) * 100).toFixed(1) : '0';
+                      return (
+                        <div key={i} className="flex items-center gap-3 rounded-lg px-4 py-3 border" style={{borderColor: COLORS[i], backgroundColor: `${COLORS[i]}10`}}>
+                          <div className="w-4 h-4 rounded-full shrink-0" style={{backgroundColor: COLORS[i]}}></div>
+                          <div className="flex flex-col">
+                            <span className="text-sm font-bold text-slate-800">{entry.name}</span>
+                            <span className="text-lg font-extrabold" style={{color: COLORS[i]}}>{Number(entry.value).toLocaleString()}</span>
+
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
           {/* 3. Data Grid Layer */}
-          <div className="flex flex-col flex-1 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm mt-2 min-h-[300px]">
-            <div className="flex-1 overflow-auto">
+          <div className="flex flex-col flex-1 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm mt-2 min-h-[300px] print:overflow-visible print:h-auto print:block">
+            <div className="flex-1 overflow-auto print:overflow-visible print:h-auto">
               <table className="w-full text-right text-sm text-slate-600 relative">
                 <thead className="sticky top-0 bg-slate-50 text-xs font-bold uppercase text-slate-700 shadow-sm z-10">
                   <tr>
@@ -327,7 +402,8 @@ export default function AnalyticsDashboard() {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {(() => {
-                    if (!data.grid_data || data.grid_data.length === 0) {
+                    const displayData = isPrintMode && allGridData.length > 0 ? allGridData : data.grid_data;
+                    if (!displayData || displayData.length === 0) {
                       return (
                         <tr>
                           <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
@@ -338,7 +414,7 @@ export default function AnalyticsDashboard() {
                     }
 
                     const groups: { grade: string; records: DepartmentMetric[] }[] = [];
-                    data.grid_data.forEach(rec => {
+                    displayData.forEach(rec => {
                       const g = rec.job_grade || "-";
                       let group = groups.find(x => x.grade === g);
                       if (!group) {
@@ -399,7 +475,7 @@ export default function AnalyticsDashboard() {
             </div>
             
             {/* Pagination */}
-            <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50 px-4 py-3 shrink-0">
+            <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50 px-4 py-3 shrink-0 print:hidden">
               <span className="text-xs text-slate-500">
                 إجمالي السجلات: <span className="font-bold text-slate-700">{data.total_records.toLocaleString()}</span>
               </span>
@@ -426,6 +502,11 @@ export default function AnalyticsDashboard() {
           </div>
         </>
       ) : null}
+
+      {/* Print-only Copyright Footer - at the very bottom */}
+      <div className="hidden print:block text-center mt-12 pt-4 border-t border-slate-300">
+        <p className="text-xs font-medium text-slate-600">© Yahya Hafedh ALsabbagh 2026</p>
+      </div>
     </div>
   );
 }
