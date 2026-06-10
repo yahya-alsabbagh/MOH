@@ -22,12 +22,14 @@ pub struct KpiSummary {
     pub total_male: i64,
     pub total_female: i64,
     pub total_count: i64,
+    pub total_vacant: i64,
 }
 
 #[derive(Debug, Serialize)]
 pub struct PieChartData {
     pub total_male: i64,
     pub total_female: i64,
+    pub total_vacant: i64,
 }
 
 #[derive(Debug, Serialize)]
@@ -105,7 +107,8 @@ pub fn fetch_kpi_summary() -> Result<KpiSummary, String> {
         "SELECT 
             CAST(COALESCE(SUM(male_count), 0) AS BIGINT), 
             CAST(COALESCE(SUM(female_count), 0) AS BIGINT), 
-            CAST(COALESCE(SUM(male_count + female_count), 0) AS BIGINT) 
+            CAST(COALESCE(SUM(male_count + female_count), 0) AS BIGINT),
+            CAST(COALESCE(SUM(vacant_count), 0) AS BIGINT)
          FROM department_metrics
          WHERE (job_title IS NULL OR (job_title NOT LIKE 'مجموع %' AND job_title NOT LIKE 'المجموع %' AND job_title != 'المجموع' AND job_title NOT LIKE '%مجموع كلي%' AND job_title NOT LIKE '%مجموع الدرجة%' AND job_title NOT LIKE '%مجموع درجة%'))
          AND (job_grade IS NULL OR (job_grade NOT LIKE 'مجموع %' AND job_grade NOT LIKE 'المجموع %' AND job_grade != 'المجموع' AND job_grade NOT LIKE '%مجموع كلي%'))"
@@ -117,17 +120,20 @@ pub fn fetch_kpi_summary() -> Result<KpiSummary, String> {
         let total_male: i64 = row.get(0).unwrap_or(0);
         let total_female: i64 = row.get(1).unwrap_or(0);
         let total_count: i64 = row.get(2).unwrap_or(0);
+        let total_vacant: i64 = row.get(3).unwrap_or(0);
 
         Ok(KpiSummary {
             total_male,
             total_female,
             total_count,
+            total_vacant,
         })
     } else {
         Ok(KpiSummary {
             total_male: 0,
             total_female: 0,
             total_count: 0,
+            total_vacant: 0,
         })
     }
 }
@@ -187,6 +193,7 @@ pub fn delete_dataset(ministry: String, directorate: String, approval_year: i32)
 pub struct GradeDistributionData {
     pub job_grade: String,
     pub count: i64,
+    pub vacant_count: i64,
 }
 
 #[derive(Debug, Serialize)]
@@ -194,6 +201,7 @@ pub struct GenderParityData {
     pub job_title: String,
     pub males: i64,
     pub females: i64,
+    pub vacancies: i64,
     pub total: i64,
 }
 
@@ -320,7 +328,8 @@ pub fn fetch_filtered_analytics(
         "SELECT 
             CAST(COALESCE(SUM(male_count), 0) AS BIGINT), 
             CAST(COALESCE(SUM(female_count), 0) AS BIGINT), 
-            CAST(COALESCE(SUM(male_count + female_count), 0) AS BIGINT) 
+            CAST(COALESCE(SUM(male_count + female_count), 0) AS BIGINT),
+            CAST(COALESCE(SUM(vacant_count), 0) AS BIGINT)
          FROM department_metrics WHERE {}",
          where_clause
     );
@@ -332,18 +341,21 @@ pub fn fetch_filtered_analytics(
         total_male: 0,
         total_female: 0,
         total_count: 0,
+        total_vacant: 0,
     };
 
     if let Some(row) = kpi_rows.next().map_err(|e| e.to_string())? {
         kpis.total_male = row.get(0).unwrap_or(0);
         kpis.total_female = row.get(1).unwrap_or(0);
         kpis.total_count = row.get(2).unwrap_or(0);
+        kpis.total_vacant = row.get(3).unwrap_or(0);
     }
 
     // 2. Grade Distribution (Grade Pyramid)
     let grade_dist_query = format!(
         "SELECT job_grade, 
-            CAST(COALESCE(SUM(male_count + female_count), 0) AS BIGINT) as count
+            CAST(COALESCE(SUM(male_count + female_count), 0) AS BIGINT) as count,
+            CAST(COALESCE(SUM(vacant_count), 0) AS BIGINT) as vacant_count
          FROM department_metrics WHERE {} AND job_grade IS NOT NULL AND job_grade != ''
          GROUP BY job_grade
          ORDER BY CASE 
@@ -369,13 +381,16 @@ pub fn fetch_filtered_analytics(
         let raw_grade: String = row.get(0).unwrap_or_default();
         let mapped_grade = map_grade_to_arabic(&raw_grade);
         let count: i64 = row.get(1).unwrap_or(0);
+        let vacant_count: i64 = row.get(2).unwrap_or(0);
         
         if let Some(existing) = grade_distribution.iter_mut().find(|g| g.job_grade == mapped_grade) {
             existing.count += count;
+            existing.vacant_count += vacant_count;
         } else {
             grade_distribution.push(GradeDistributionData {
                 job_grade: mapped_grade,
                 count,
+                vacant_count,
             });
         }
     }
@@ -385,6 +400,7 @@ pub fn fetch_filtered_analytics(
         "SELECT job_title, 
             CAST(COALESCE(SUM(male_count), 0) AS BIGINT) as males,
             CAST(COALESCE(SUM(female_count), 0) AS BIGINT) as females,
+            CAST(COALESCE(SUM(vacant_count), 0) AS BIGINT) as vacancies,
             CAST(COALESCE(SUM(male_count + female_count), 0) AS BIGINT) as total
          FROM department_metrics WHERE {} AND job_title IS NOT NULL AND job_title != ''
          GROUP BY job_title
@@ -400,7 +416,8 @@ pub fn fetch_filtered_analytics(
             job_title: row.get(0).unwrap_or_default(),
             males: row.get(1).unwrap_or(0),
             females: row.get(2).unwrap_or(0),
-            total: row.get(3).unwrap_or(0),
+            vacancies: row.get(3).unwrap_or(0),
+            total: row.get(4).unwrap_or(0),
         });
     }
 
@@ -462,6 +479,7 @@ pub fn fetch_filtered_analytics(
         pie_chart_data: PieChartData {
             total_male: kpis.total_male,
             total_female: kpis.total_female,
+            total_vacant: kpis.total_vacant,
         },
         kpis,
         grade_distribution,

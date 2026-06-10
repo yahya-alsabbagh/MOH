@@ -24,23 +24,27 @@ interface KpiSummary {
   total_male: number;
   total_female: number;
   total_count: number;
+  total_vacant: number;
 }
 
 interface GradeDistributionData {
   job_grade: string;
   count: number;
+  vacant_count: number;
 }
 
 interface GenderParityData {
   job_title: string;
   males: number;
   females: number;
+  vacancies: number;
   total: number;
 }
 
 interface PieChartData {
   total_male: number;
   total_female: number;
+  total_vacant: number;
 }
 
 interface AnalyticsResponse {
@@ -150,13 +154,17 @@ export default function AnalyticsDashboard() {
 
   const pieData = useMemo(() => {
     if (!data) return [];
-    return [
+    const base = [
       { name: 'ذكور', value: data.pie_chart_data?.total_male || 0 },
       { name: 'إناث', value: data.pie_chart_data?.total_female || 0 }
     ];
+    if (data.pie_chart_data?.total_vacant > 0) {
+      base.push({ name: 'شواغر', value: data.pie_chart_data.total_vacant });
+    }
+    return base;
   }, [data]);
 
-  const COLORS = ['#3b82f6', '#ec4899']; // Indigo for Male, Pink for Female
+  const COLORS = ['#3b82f6', '#ec4899', '#f59e0b']; // Indigo for Male, Pink for Female, Orange for Vacancies
 
   const totalPages = data ? Math.ceil(data.total_records / pageSize) : 0;
 
@@ -228,43 +236,54 @@ export default function AnalyticsDashboard() {
       ) : data ? (
         <>
           {/* 2. KPIs & Charts */}
-          <div className="flex flex-col gap-6 shrink-0 overflow-y-auto print:overflow-visible print:h-auto">
+          <div className="flex flex-col gap-6 shrink-0 overflow-y-auto print:overflow-visible print:h-auto print:gap-2">
             {/* KPI Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-5 shadow-sm">
-                <div className="flex items-center gap-3">
-                  <div className="rounded-lg bg-indigo-100 p-2 text-indigo-600"><Users className="h-5 w-5" /></div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 print:gap-2">
+              <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-5 shadow-sm print:p-2">
+                <div className="flex items-center gap-3 print:gap-2">
+                  <div className="rounded-lg bg-indigo-100 p-2 text-indigo-600 print:p-1"><Users className="h-5 w-5 print:h-4 print:w-4" /></div>
                   <div>
-                    <p className="text-xs font-bold text-slate-500 uppercase">إجمالي الملاك</p>
-                    <h4 className="text-2xl font-black text-slate-800">{data.kpis.total_count.toLocaleString()}</h4>
+                    <p className="text-xs font-bold text-slate-500 uppercase print:text-[10px]">إجمالي الملاك</p>
+                    <h4 className="text-2xl font-black text-slate-800 print:text-lg">{data.kpis.total_count.toLocaleString()}</h4>
                   </div>
                 </div>
               </div>
-              <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-5 shadow-sm">
-                <div className="flex items-center gap-3">
-                  <div className="rounded-lg bg-blue-100 p-2 text-blue-600"><UsersRound className="h-5 w-5" /></div>
+              <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-5 shadow-sm print:p-2">
+                <div className="flex items-center gap-3 print:gap-2">
+                  <div className="rounded-lg bg-blue-100 p-2 text-blue-600 print:p-1"><UsersRound className="h-5 w-5 print:h-4 print:w-4" /></div>
                   <div>
-                    <p className="text-xs font-bold text-slate-500 uppercase">الذكور</p>
-                    <h4 className="text-2xl font-black text-slate-800">{data.kpis.total_male.toLocaleString()}</h4>
+                    <p className="text-xs font-bold text-slate-500 uppercase print:text-[10px]">الذكور</p>
+                    <h4 className="text-2xl font-black text-slate-800 print:text-lg">{data.kpis.total_male.toLocaleString()}</h4>
                   </div>
                 </div>
               </div>
-              <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-5 shadow-sm">
-                <div className="flex items-center gap-3">
-                  <div className="rounded-lg bg-pink-100 p-2 text-pink-600"><UsersRound className="h-5 w-5" /></div>
+              <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-5 shadow-sm print:p-2">
+                <div className="flex items-center gap-3 print:gap-2">
+                  <div className="rounded-lg bg-pink-100 p-2 text-pink-600 print:p-1"><UsersRound className="h-5 w-5 print:h-4 print:w-4" /></div>
                   <div>
-                    <p className="text-xs font-bold text-slate-500 uppercase">الإناث</p>
-                    <h4 className="text-2xl font-black text-slate-800">{data.kpis.total_female.toLocaleString()}</h4>
+                    <p className="text-xs font-bold text-slate-500 uppercase print:text-[10px]">الإناث</p>
+                    <h4 className="text-2xl font-black text-slate-800 print:text-lg">{data.kpis.total_female.toLocaleString()}</h4>
+                  </div>
+                </div>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-5 shadow-sm print:p-2">
+                <div className="flex items-center gap-3 print:gap-2">
+                  <div className="rounded-lg bg-amber-100 p-2 text-amber-600 print:p-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 print:h-4 print:w-4"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-slate-500 uppercase print:text-[10px]">الشواغر</p>
+                    <h4 className="text-2xl font-black text-slate-800 print:text-lg">{data.kpis.total_vacant.toLocaleString()}</h4>
                   </div>
                 </div>
               </div>
             </div>
             {/* Charts Row 1: Grade Pyramid & Gender Parity */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 min-h-[400px] print:break-inside-avoid">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 min-h-[400px] print:break-inside-avoid print:min-h-0 print:gap-2">
               {/* Grade Pyramid */}
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-5 shadow-sm flex flex-col">
-                <h4 className="text-sm font-bold text-slate-700 mb-4">هرم التدرج الوظيفي</h4>
-                <div className="flex-1 min-h-[300px] flex" dir="ltr">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-5 shadow-sm flex flex-col print:p-2">
+                <h4 className="text-sm font-bold text-slate-700 mb-4 print:mb-1">هرم التدرج الوظيفي</h4>
+                <div className="flex-1 min-h-[300px] flex print:min-h-[220px]" dir="ltr">
                   <div className="flex-1">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart
@@ -279,6 +298,11 @@ export default function AnalyticsDashboard() {
                         <Bar isAnimationActive={!isPrintMode} dataKey="count" name="العدد" fill="#6366f1" radius={[0, 4, 4, 0]} barSize={18}>
                           <LabelList dataKey="count" position="right" fill="#1e293b" fontSize={11} fontWeight="bold" formatter={(val: any) => Number(val) > 0 ? Number(val).toLocaleString() : ''} />
                         </Bar>
+                        {data.kpis.total_vacant > 0 && (
+                          <Bar isAnimationActive={!isPrintMode} dataKey="vacant_count" name="شواغر" fill="#f59e0b" radius={[0, 4, 4, 0]} barSize={18}>
+                            <LabelList dataKey="vacant_count" position="right" fill="#1e293b" fontSize={11} fontWeight="bold" formatter={(val: any) => Number(val) > 0 ? Number(val).toLocaleString() : ''} />
+                          </Bar>
+                        )}
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -291,9 +315,9 @@ export default function AnalyticsDashboard() {
               </div>
               
               {/* Gender Parity */}
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-5 shadow-sm flex flex-col">
-                <h4 className="text-sm font-bold text-slate-700 mb-4">التركز النوعي (أعلى 10 وظائف)</h4>
-                <div className="flex-1 min-h-[300px] flex" dir="ltr">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-5 shadow-sm flex flex-col print:p-2">
+                <h4 className="text-sm font-bold text-slate-700 mb-4 print:mb-1">التركز النوعي (أعلى 10 وظائف)</h4>
+                <div className="flex-1 min-h-[300px] flex print:min-h-[220px]" dir="ltr">
                   <div className="flex-1">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart
@@ -309,9 +333,14 @@ export default function AnalyticsDashboard() {
                         <Bar isAnimationActive={!isPrintMode} dataKey="males" name="ذكور" stackId="a" fill="#3b82f6" radius={[0, 0, 0, 0]} barSize={18}>
                           <LabelList dataKey="males" position="inside" fill="#000" fontSize={9} fontWeight="bold" formatter={(val: any) => Number(val) > 0 ? Number(val).toLocaleString() : ''} />
                         </Bar>
-                        <Bar isAnimationActive={!isPrintMode} dataKey="females" name="إناث" stackId="a" fill="#ec4899" radius={[0, 4, 4, 0]} barSize={18}>
+                        <Bar isAnimationActive={!isPrintMode} dataKey="females" name="إناث" stackId="a" fill="#ec4899" radius={data.kpis.total_vacant > 0 ? [0, 0, 0, 0] : [0, 4, 4, 0]} barSize={18}>
                           <LabelList dataKey="females" position="inside" fill="#000" fontSize={9} fontWeight="bold" formatter={(val: any) => Number(val) > 0 ? Number(val).toLocaleString() : ''} />
                         </Bar>
+                        {data.kpis.total_vacant > 0 && (
+                          <Bar isAnimationActive={!isPrintMode} dataKey="vacancies" name="شواغر" stackId="a" fill="#f59e0b" radius={[0, 4, 4, 0]} barSize={18}>
+                            <LabelList dataKey="vacancies" position="inside" fill="#000" fontSize={9} fontWeight="bold" formatter={(val: any) => Number(val) > 0 ? Number(val).toLocaleString() : ''} />
+                          </Bar>
+                        )}
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -325,10 +354,10 @@ export default function AnalyticsDashboard() {
             </div>
 
             {/* Charts Row 2: PieChart */}
-            <div className="flex min-h-[300px] print:break-inside-avoid">
-              <div className="flex-1 rounded-xl border border-slate-200 bg-slate-50 p-5 shadow-sm flex flex-col">
-                <h4 className="text-sm font-bold text-slate-700 mb-4 text-center">نسبة النوع</h4>
-                <div className="flex-1 flex items-center justify-center gap-8 flex-wrap">
+            <div className="flex min-h-[300px] print:break-inside-avoid print:min-h-0">
+              <div className="flex-1 rounded-xl border border-slate-200 bg-slate-50 p-5 shadow-sm flex flex-col print:p-2">
+                <h4 className="text-sm font-bold text-slate-700 mb-4 text-center print:mb-1">نسبة النوع</h4>
+                <div className="flex-1 flex items-center justify-center gap-8 flex-wrap print:gap-4">
                   {/* Donut Chart */}
                   <div style={{width: 200, height: 200}} dir="ltr">
                     <ResponsiveContainer width="100%" height="100%">
@@ -349,7 +378,7 @@ export default function AnalyticsDashboard() {
                             const x = cx + radius * Math.cos(-midAngle * RADIAN);
                             const y = cy + radius * Math.sin(-midAngle * RADIAN);
                             return (
-                              <text x={x} y={y} fill="#fff" textAnchor="middle" dominantBaseline="central" fontSize={11} fontWeight="bold">
+                              <text x={x} y={y} fill="#000" textAnchor="middle" dominantBaseline="central" fontSize={11} fontWeight="bold">
                                 {`${((percent || 0) * 100).toFixed(1)}%`}
                               </text>
                             );
@@ -397,6 +426,7 @@ export default function AnalyticsDashboard() {
                     <th className="px-4 py-3 border-b border-slate-200">الرمز</th>
                     <th className="px-4 py-3 border-b border-slate-200 text-center">الذكور</th>
                     <th className="px-4 py-3 border-b border-slate-200 text-center">الإناث</th>
+                    <th className="px-4 py-3 border-b border-slate-200 text-center text-amber-600">الشواغر</th>
                     <th className="px-4 py-3 border-b border-slate-200 text-center">المجموع</th>
                   </tr>
                 </thead>
@@ -443,12 +473,13 @@ export default function AnalyticsDashboard() {
                                   <td className="px-4 py-2 font-mono text-[10px] text-slate-500">{m.job_code || "-"}</td>
                                   <td className="px-4 py-2 text-center font-semibold text-xs">{m.male_count ?? "-"}</td>
                                   <td className="px-4 py-2 text-center font-semibold text-xs">{m.female_count ?? "-"}</td>
+                                  <td className="px-4 py-2 text-center font-bold text-amber-600 text-xs">{m.vacant_count ?? "-"}</td>
                                   <td className="px-4 py-2 text-center font-bold text-emerald-600 text-xs">{(m.male_count ?? 0) + (m.female_count ?? 0)}</td>
                                 </tr>
                               ))}
                               {/* Subtotal Row for this Grade */}
                               <tr className="bg-amber-50/50">
-                                <td colSpan={6} className="px-4 py-3 font-bold text-slate-800 text-left border-y border-amber-100">
+                                <td colSpan={7} className="px-4 py-3 font-bold text-slate-800 text-left border-y border-amber-100">
                                   مجموع الدرجة ({group.grade}):
                                 </td>
                                 <td className="px-4 py-3 text-center font-bold text-amber-600 border-y border-amber-100 text-sm">
@@ -460,7 +491,7 @@ export default function AnalyticsDashboard() {
                         })}
                         {/* Grand Total Row */}
                         <tr className="bg-slate-100">
-                          <td colSpan={6} className="px-4 py-4 font-black text-slate-800 text-left border-y border-slate-300">
+                          <td colSpan={7} className="px-4 py-4 font-black text-slate-800 text-left border-y border-slate-300">
                             المجموع الكلي:
                           </td>
                           <td className="px-4 py-4 text-center font-black text-indigo-700 border-y border-slate-300 text-lg">
