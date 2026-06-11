@@ -405,7 +405,7 @@ pub fn fetch_filtered_analytics(
          FROM department_metrics WHERE {} AND job_title IS NOT NULL AND job_title != ''
          GROUP BY job_title
          ORDER BY total DESC
-         LIMIT 10",
+         LIMIT 15",
          where_clause
     );
     let mut parity_stmt = conn.prepare(&parity_query).map_err(|e| e.to_string())?;
