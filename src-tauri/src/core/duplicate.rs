@@ -194,15 +194,8 @@ pub fn extract_duplicates_keep_false(
             .trim()
             .to_string();
 
-        // Normalize alef variants only for grouping purposes
-        let normalized_name = original_name
-            .replace('\u{0623}', "\u{0627}") // أ -> ا
-            .replace('\u{0625}', "\u{0627}") // إ -> ا
-            .replace('\u{0622}', "\u{0627}") // آ -> ا
-            .replace('\u{0649}', "\u{064A}") // ى -> ي
-            .split_whitespace()
-            .collect::<Vec<_>>()
-            .join(" ");
+        // توحيد الاسم العربي باستخدام خط الأنابيب المتقدم
+        let normalized_name = crate::core::cleaner::normalize_arabic_name(&original_name);
 
         let words: Vec<&str> = normalized_name.split_whitespace().collect();
         let triple_name = words.iter().take(3).cloned().collect::<Vec<_>>().join(" ");
