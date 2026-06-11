@@ -52,14 +52,14 @@ pub fn initialize_db() -> Result<(), String> {
         [],
     ).map_err(|e| e.to_string())?;
 
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS hierarchy_lookup (
+    conn.execute_batch(
+        "DROP TABLE IF EXISTS hierarchy_lookup;
+        CREATE TABLE IF NOT EXISTS hierarchy_lookup (
             ministry_code INTEGER,
             ministry_name VARCHAR,
             dept_code INTEGER,
             dept_name VARCHAR
         )",
-        [],
     ).map_err(|e| e.to_string())?;
 
     seed_hierarchy_lookup(&mut conn)?;
@@ -95,40 +95,60 @@ fn seed_hierarchy_lookup(conn: &mut Connection) -> Result<(), String> {
     
     {
         let mut appender = tx.appender("hierarchy_lookup").map_err(|e| e.to_string())?;
-        
-        // Pass 1: Collect ministry names (where dept_code/Qism == 1)
-        let mut ministry_names = std::collections::HashMap::new();
+
+        // Pass 1: Collect ministry names from قسم 1 rows.
+        // قسم 1 is always the "head" of a باب.
+        // If the title contains '/', the part before '/' is the ministry name.
+        let mut ministry_names: std::collections::HashMap<i32, String> = std::collections::HashMap::new();
         for row in sheet.rows() {
             if row.len() >= 3 {
                 let dept_code = row[0].get_int().or_else(|| row[0].get_float().map(|f| f as i64)).unwrap_or(0) as i32;
                 let ministry_code = row[1].get_int().or_else(|| row[1].get_float().map(|f| f as i64)).unwrap_or(0) as i32;
                 let title = row[2].get_string().unwrap_or("").trim().to_string();
-                
-                if dept_code == 1 && !title.is_empty() {
-                    // Split by slash if needed, e.g. "وزارة المالية/مركز الوزارة" -> "وزارة المالية"
-                    let parts: Vec<&str> = title.split('/').collect();
-                    ministry_names.insert(ministry_code, parts[0].trim().to_string());
+
+                if dept_code == 1 && ministry_code > 0 && !title.is_empty() {
+                    let min_name = if title.contains('/') {
+                        title.split('/').next().unwrap_or("").trim().to_string()
+                    } else {
+                        title.clone()
+                    };
+                    ministry_names.insert(ministry_code, min_name);
                 }
             }
         }
 
-        // Pass 2: Insert rows
+        // Pass 2: Insert rows into hierarchy_lookup.
         for row in sheet.rows() {
             if row.len() >= 3 {
                 let dept_code = row[0].get_int().or_else(|| row[0].get_float().map(|f| f as i64)).unwrap_or(0) as i32;
                 let ministry_code = row[1].get_int().or_else(|| row[1].get_float().map(|f| f as i64)).unwrap_or(0) as i32;
-                let dept_name = row[2].get_string().unwrap_or("").trim().to_string();
-                
-                if ministry_code > 0 && dept_code > 0 && !dept_name.is_empty() && dept_name != "العنــــــــــــــوان" {
+                let title = row[2].get_string().unwrap_or("").trim().to_string();
+
+                if ministry_code <= 0 || dept_code <= 0 || title.is_empty() || title == "العنــــــــــــــوان" {
+                    continue;
+                }
+
+                if ministry_code == 43 {
+                    // باب 43: Every row is an independent entity.
+                    // Use a synthetic ministry_code (dept_code * 100 + 43) to keep them separate.
+                    let synthetic_code = dept_code * 100 + 43;
+                    appender.append_row(duckdb::params![
+                        synthetic_code,
+                        title.clone(),
+                        dept_code,
+                        title.clone()
+                    ]).map_err(|e| e.to_string())?;
+                } else {
+                    // Normal باب: group under the ministry from Pass 1.
                     let min_name = ministry_names.get(&ministry_code)
                         .cloned()
-                        .unwrap_or_else(|| "جهة غير معروفة".to_string());
-                    
+                        .unwrap_or_else(|| title.clone());
+
                     appender.append_row(duckdb::params![
                         ministry_code,
                         min_name,
                         dept_code,
-                        dept_name
+                        title
                     ]).map_err(|e| e.to_string())?;
                 }
             }
