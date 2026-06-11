@@ -98,6 +98,7 @@ lazy_static! {
     static ref RE_RAEES_MOHANDSIN: Regex =
         Regex::new(r"(\bرئيس\b) (\s* مهن \s*)").expect("valid regex");
     static ref RE_MOKHTABAR_TEBBI: Regex = Regex::new(r".*مختبر طبي.*").expect("valid regex");
+    static ref RE_MOFAWADH: Regex = Regex::new(r"مفوض\s*(?:الدرجة|درجة|در|د)?\s*(\d+)").expect("valid regex");
     static ref RE_GRADE_B: Regex = Regex::new(r"\bب\b|\(\s*ب\s*\)").expect("valid regex");
     static ref RE_GRADE_A: Regex = Regex::new(r"\b[اأ]\b|\(\s*[اأ]\s*\)").expect("valid regex");
     static ref RE_REMOVE_RAJ: Regex = Regex::new(r"\S*رج\S*").expect("valid regex");
@@ -176,7 +177,7 @@ pub fn clean_job_grade_column(text: &str) -> Result<String, CleanerError> {
     }
 }
 
-pub fn clean_job_title_column(text: &str) -> Result<String, CleanerError> {
+pub fn clean_job_title_column(text: &str, is_military: bool) -> Result<String, CleanerError> {
     let mut cleaned = replace_literal_chain(
         text.to_string(),
         &[
@@ -319,6 +320,7 @@ pub fn clean_job_title_column(text: &str) -> Result<String, CleanerError> {
             (&RE_MOAWEN_MOHANDIS_ZRAI, "معاون مهندس زراعي"),
             (&RE_RAEES_MOHANDSIN, "$1 مهندسين"),
             (&RE_MOKHTABAR_TEBBI, "معاون طبي/معاون مختبر طبي"),
+            (&RE_MOFAWADH, "مفوض ${1}"),
         ],
     );
 
@@ -480,5 +482,9 @@ pub fn clean_job_title_column(text: &str) -> Result<String, CleanerError> {
         _ => None,
     };
 
-    Ok(normalized.unwrap_or(&cleaned).to_string())
+    let mut final_title = normalized.unwrap_or(&cleaned).to_string();
+    if is_military && final_title.trim() == "عميد" {
+        final_title = "عميد عسكري".to_string();
+    }
+    Ok(final_title)
 }

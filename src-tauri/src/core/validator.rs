@@ -148,6 +148,9 @@ pub fn validate_titles_and_grades(
     title_col: &str,
     grade_col: &str,
 ) -> Result<ValidationResult, ValidatorError> {
+    let file_name = work_file_path.as_ref().file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
+    let is_military = file_name.contains("عسكري");
+
     let (work_headers, work_rows) = read_sheet_as_strings(work_file_path.as_ref())?;
 
     let title_idx = work_headers
@@ -179,7 +182,7 @@ pub fn validate_titles_and_grades(
         let raw_grade = row.get(grade_idx).cloned().unwrap_or_default();
 
         let cleaned_title =
-            clean_job_title_column(&raw_title).map_err(|e| ValidatorError::Cleaning(e.to_string()))?;
+            clean_job_title_column(&raw_title, is_military).map_err(|e| ValidatorError::Cleaning(e.to_string()))?;
         let cleaned_grade =
             clean_job_grade_column(&raw_grade).map_err(|e| ValidatorError::Cleaning(e.to_string()))?;
 
