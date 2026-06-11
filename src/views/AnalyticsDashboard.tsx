@@ -177,11 +177,11 @@ export default function AnalyticsDashboard() {
   }, [data]);
 
   const gradeChartPrintHeight = useMemo(() => {
-    if (!data) return 200;
+    if (!data) return 150;
     const grades = data.grade_distribution.length;
     const hasVacancies = data.kpis.total_vacant > 0;
-    const perGrade = hasVacancies ? 35 : 22;
-    return grades * perGrade + 15;
+    const perGrade = hasVacancies ? 25 : 18;
+    return Math.max(120, Math.min(280, grades * perGrade + 15));
   }, [data]);
 
   const parityChartHeight = useMemo(() => {
@@ -191,9 +191,9 @@ export default function AnalyticsDashboard() {
   }, [data]);
 
   const parityChartPrintHeight = useMemo(() => {
-    if (!data) return 200;
+    if (!data) return 150;
     const jobs = data.gender_parity.length;
-    return jobs * 22 + 35;
+    return Math.max(120, Math.min(280, jobs * 18 + 25));
   }, [data]);
 
   const totalPages = data ? Math.ceil(data.total_records / pageSize) : 0;
@@ -268,7 +268,7 @@ export default function AnalyticsDashboard() {
       ) : data ? (
         <>
           {/* 2. KPIs & Charts */}
-          <div className="flex flex-col gap-6 shrink-0 overflow-y-auto print:overflow-visible print:h-auto print:gap-0">
+          <div className="flex flex-col gap-6 shrink-0 overflow-y-auto print:overflow-visible print:h-auto print:gap-4 print:my-4">
             {/* KPI Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 print:gap-2">
               <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-5 shadow-sm print:p-2">
@@ -333,11 +333,11 @@ export default function AnalyticsDashboard() {
             </div>
 
             {/* Charts Row 1: Grade Pyramid & Gender Parity */}
-            {showCharts && <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 min-h-[400px] print:min-h-0 print:gap-2 print:grid-cols-1">
+            {showCharts && <div className={`grid grid-cols-1 lg:grid-cols-2 gap-6 min-h-[400px] print:min-h-0 print:gap-4 print:page-break-inside-avoid print:break-inside-avoid ${isPrintMode && searchQuery ? 'print:grid-cols-1' : 'print:grid-cols-2'}`}>
               {/* Grade Pyramid */}
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-5 shadow-sm flex flex-col print:p-2 print:break-inside-avoid overflow-hidden">
-                <h4 className="text-sm font-bold text-slate-700 mb-4 print:mb-1">هرم التدرج الوظيفي</h4>
-                <div className="flex relative overflow-hidden" dir="ltr" style={{ height: `${isPrintMode ? gradeChartPrintHeight : gradeChartHeight}px` }}>
+              <div className={`rounded-xl border border-slate-200 bg-slate-50 p-5 shadow-sm flex flex-col print:p-2 print:break-inside-avoid ${isPrintMode ? '' : 'overflow-hidden'}`}>
+                <h4 className="text-sm font-bold text-slate-700 mb-4 print:mb-1">الدرجات الوظيفية</h4>
+                <div className={`flex relative ${isPrintMode ? '' : 'overflow-hidden'}`} dir="ltr" style={{ height: `${isPrintMode ? gradeChartPrintHeight : gradeChartHeight}px` }}>
                   <div className="absolute inset-y-0 right-0 left-0 flex flex-col pointer-events-none z-0" style={{ padding: '5px 0' }}>
                     {data.grade_distribution.map((_, i) => (
                       <div key={i} className={`flex-1 ${i !== data.grade_distribution.length - 1 ? 'border-b border-slate-300 print:border-slate-400' : ''}`} />
@@ -354,12 +354,12 @@ export default function AnalyticsDashboard() {
                         <XAxis type="number" hide />
                         <YAxis type="category" dataKey="job_grade" hide />
                         <RechartsTooltip cursor={{fill: '#f1f5f9'}} contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}} />
-                        <Bar isAnimationActive={!isPrintMode} dataKey="count" name="العدد" fill="#6366f1" radius={[0, 4, 4, 0]} maxBarSize={18}>
-                          <LabelList dataKey="count" position={isPrintMode ? 'insideRight' : 'right'} fill={isPrintMode ? '#fff' : '#1e293b'} fontSize={isPrintMode ? 9 : 11} fontWeight="bold" formatter={(val: any) => Number(val) > 0 ? Number(val).toLocaleString() : ''} />
+                        <Bar isAnimationActive={!isPrintMode} dataKey="count" name="العدد" fill="#6366f1" radius={[0, 4, 4, 0]} maxBarSize={isPrintMode ? 10 : 18}>
+                          <LabelList dataKey="count" position={isPrintMode ? 'insideRight' : 'right'} fill="#000" fontSize={isPrintMode ? 9 : 11} fontWeight="bold" formatter={(val: any) => Number(val) > 0 ? Number(val).toLocaleString() : ''} />
                         </Bar>
                         {data.kpis.total_vacant > 0 && (
-                          <Bar isAnimationActive={!isPrintMode} dataKey="vacant_count" name="شواغر" fill="#f59e0b" radius={[0, 4, 4, 0]} maxBarSize={18}>
-                            <LabelList dataKey="vacant_count" position={isPrintMode ? 'insideRight' : 'right'} fill={isPrintMode ? '#fff' : '#1e293b'} fontSize={isPrintMode ? 9 : 11} fontWeight="bold" formatter={(val: any) => Number(val) > 0 ? Number(val).toLocaleString() : ''} />
+                          <Bar isAnimationActive={!isPrintMode} dataKey="vacant_count" name="شواغر" fill="#f59e0b" radius={[0, 4, 4, 0]} maxBarSize={isPrintMode ? 10 : 18}>
+                            <LabelList dataKey="vacant_count" position={isPrintMode ? 'insideRight' : 'right'} fill="#000" fontSize={isPrintMode ? 9 : 11} fontWeight="bold" formatter={(val: any) => Number(val) > 0 ? Number(val).toLocaleString() : ''} />
                           </Bar>
                         )}
                       </BarChart>
@@ -374,9 +374,9 @@ export default function AnalyticsDashboard() {
               </div>
               
               {/* Gender Parity */}
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-5 shadow-sm flex flex-col print:p-2 print:break-inside-avoid overflow-hidden">
-                <h4 className="text-sm font-bold text-slate-700 mb-4 print:mb-1">التركز النوعي (أعلى 15 وظيفة)</h4>
-                <div className="flex overflow-hidden" dir="ltr" style={{ height: `${isPrintMode ? parityChartPrintHeight : parityChartHeight}px` }}>
+              <div className={`rounded-xl border border-slate-200 bg-slate-50 p-5 shadow-sm flex flex-col print:p-2 print:break-inside-avoid ${isPrintMode ? '' : 'overflow-hidden'}`}>
+                <h4 className="text-sm font-bold text-slate-700 mb-4 print:mb-1">{isPrintMode ? 'العنوان الوظيفي' : 'التركز النوعي (أعلى 15 وظيفة)'}</h4>
+                <div className={`flex ${isPrintMode ? '' : 'overflow-hidden'}`} dir="ltr" style={{ height: `${isPrintMode ? parityChartPrintHeight : parityChartHeight}px` }}>
                   <div className="flex-1 overflow-hidden">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart
@@ -389,14 +389,14 @@ export default function AnalyticsDashboard() {
                         <YAxis type="category" dataKey="job_title" hide />
                         <RechartsTooltip cursor={{fill: '#f1f5f9'}} contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}} />
                         <Legend verticalAlign="top" height={30} wrapperStyle={{fontSize: 12}} />
-                        <Bar isAnimationActive={!isPrintMode} dataKey="males" name="ذكور" stackId="a" fill="#3b82f6" radius={[0, 0, 0, 0]} maxBarSize={18}>
+                        <Bar isAnimationActive={!isPrintMode} dataKey="males" name="ذكور" stackId="a" fill="#3b82f6" radius={[0, 0, 0, 0]} maxBarSize={isPrintMode ? 10 : 18}>
                           <LabelList dataKey="males" position="inside" fill="#000" fontSize={9} fontWeight="bold" formatter={(val: any) => Number(val) > 0 ? Number(val).toLocaleString() : ''} />
                         </Bar>
-                        <Bar isAnimationActive={!isPrintMode} dataKey="females" name="إناث" stackId="a" fill="#ec4899" radius={data.kpis.total_vacant > 0 ? [0, 0, 0, 0] : [0, 4, 4, 0]} maxBarSize={18}>
+                        <Bar isAnimationActive={!isPrintMode} dataKey="females" name="إناث" stackId="a" fill="#ec4899" radius={data.kpis.total_vacant > 0 ? [0, 0, 0, 0] : [0, 4, 4, 0]} maxBarSize={isPrintMode ? 10 : 18}>
                           <LabelList dataKey="females" position="inside" fill="#000" fontSize={9} fontWeight="bold" formatter={(val: any) => Number(val) > 0 ? Number(val).toLocaleString() : ''} />
                         </Bar>
                         {data.kpis.total_vacant > 0 && (
-                          <Bar isAnimationActive={!isPrintMode} dataKey="vacancies" name="شواغر" stackId="a" fill="#f59e0b" radius={[0, 4, 4, 0]} maxBarSize={18}>
+                          <Bar isAnimationActive={!isPrintMode} dataKey="vacancies" name="شواغر" stackId="a" fill="#f59e0b" radius={[0, 4, 4, 0]} maxBarSize={isPrintMode ? 10 : 18}>
                             <LabelList dataKey="vacancies" position="inside" fill="#000" fontSize={9} fontWeight="bold" formatter={(val: any) => Number(val) > 0 ? Number(val).toLocaleString() : ''} />
                           </Bar>
                         )}
@@ -418,7 +418,7 @@ export default function AnalyticsDashboard() {
                 <h4 className="text-sm font-bold text-slate-700 mb-4 text-center print:mb-1">نسبة النوع</h4>
                 <div className="flex-1 flex items-center justify-center gap-8 flex-wrap print:gap-4">
                   {/* Donut Chart */}
-                  <div style={{width: 200, height: 200}} dir="ltr">
+                  <div style={{width: isPrintMode ? 140 : 200, height: isPrintMode ? 140 : 200}} dir="ltr">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie
@@ -426,8 +426,8 @@ export default function AnalyticsDashboard() {
                           data={pieData}
                           cx="50%"
                           cy="50%"
-                          innerRadius={55}
-                          outerRadius={80}
+                          innerRadius={isPrintMode ? 30 : 55}
+                          outerRadius={isPrintMode ? 50 : 80}
                           paddingAngle={5}
                           dataKey="value"
                           label={(props: any) => {
@@ -474,7 +474,7 @@ export default function AnalyticsDashboard() {
           </div>
 
           {/* 3. Data Grid Layer */}
-          <div className="flex flex-col flex-1 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm mt-2 min-h-[300px] print:overflow-visible print:h-auto print:block">
+          <div className="flex flex-col flex-1 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm mt-2 min-h-[300px] print:overflow-visible print:h-auto print:block print:break-before-page" style={{ pageBreakBefore: isPrintMode ? 'always' : 'auto' }}>
             <div className="flex-1 overflow-auto print:overflow-visible print:h-auto">
               <table className="w-full text-right text-sm text-slate-600 relative">
                 <thead className="sticky top-0 bg-slate-50 text-xs font-bold uppercase text-slate-700 shadow-sm z-10">
