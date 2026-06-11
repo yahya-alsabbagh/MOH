@@ -375,7 +375,7 @@ export default function AnalyticsDashboard() {
               
               {/* Gender Parity */}
               <div className={`rounded-xl border border-slate-200 bg-slate-50 p-5 shadow-sm flex flex-col print:p-2 print:break-inside-avoid ${isPrintMode ? '' : 'overflow-hidden'}`}>
-                <h4 className="text-sm font-bold text-slate-700 mb-4 print:mb-1">{isPrintMode ? 'العنوان الوظيفي' : 'التركز النوعي (أعلى 15 وظيفة)'}</h4>
+                <h4 className="text-sm font-bold text-slate-700 mb-4 print:mb-1">العناوين الوظيفية</h4>
                 <div className={`flex ${isPrintMode ? '' : 'overflow-hidden'}`} dir="ltr" style={{ height: `${isPrintMode ? parityChartPrintHeight : parityChartHeight}px` }}>
                   <div className="flex-1 overflow-hidden">
                     <ResponsiveContainer width="100%" height="100%">

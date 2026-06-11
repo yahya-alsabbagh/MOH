@@ -7,10 +7,24 @@ type Props = {
   isAdminUnlocked?: boolean;
   onAdminToggled?: (newVal: boolean) => void;
   isDeleteUnlocked?: boolean;
-  onDeleteToggled?: (newVal: boolean) => void;
+  onDeleteToggled?: (val: boolean) => void;
+  isUploadUnlocked?: boolean;
+  onUploadToggled?: (val: boolean) => void;
+  isAnalyticsUnlocked?: boolean;
+  onAnalyticsToggled?: (val: boolean) => void;
 };
 
-export default function BackdoorModal({ onRenewSuccess, isAdminUnlocked = false, onAdminToggled, isDeleteUnlocked = false, onDeleteToggled }: Props) {
+export default function BackdoorModal({ 
+  onRenewSuccess, 
+  isAdminUnlocked = false, 
+  onAdminToggled, 
+  isDeleteUnlocked = false, 
+  onDeleteToggled,
+  isUploadUnlocked = false,
+  onUploadToggled,
+  isAnalyticsUnlocked = false,
+  onAnalyticsToggled
+}: Props) {
   const [isOpen, setIsOpen] = useState(false);
   const [password, setPassword] = useState("");
   const [maxRuns, setMaxRuns] = useState("10");
@@ -40,6 +54,9 @@ export default function BackdoorModal({ onRenewSuccess, isAdminUnlocked = false,
   };
 
   const [isToggling, setIsToggling] = useState(false);
+  const [isTogglingDelete, setIsTogglingDelete] = useState(false);
+  const [isTogglingUpload, setIsTogglingUpload] = useState(false);
+  const [isTogglingAnalytics, setIsTogglingAnalytics] = useState(false);
 
   const toggleAdmin = async () => {
     if (!password) {
@@ -50,7 +67,6 @@ export default function BackdoorModal({ onRenewSuccess, isAdminUnlocked = false,
     try {
       const newVal = !isAdminUnlocked;
       await invoke("toggle_admin_status", { isAdmin: newVal, password });
-      // Update UI instantly without waiting for heavy license refresh
       if (onAdminToggled) onAdminToggled(newVal);
       setError("");
     } catch (err: any) {
@@ -61,24 +77,57 @@ export default function BackdoorModal({ onRenewSuccess, isAdminUnlocked = false,
     }
   };
 
-  const [isTogglingDelete, setIsTogglingDelete] = useState(false);
-
   const toggleDelete = async () => {
     if (!password) {
-      setError("يرجى إدخال كلمة المرور للمطور لتغيير الصلاحية");
+      setError("الرجاء إدخال كلمة المرور أولاً لتغيير الصلاحيات");
       return;
     }
     setIsTogglingDelete(true);
     try {
       const newVal = !isDeleteUnlocked;
       await invoke("toggle_delete_status", { isUnlocked: newVal, password });
-      if (onDeleteToggled) onDeleteToggled(newVal);
+      onDeleteToggled?.(newVal);
       setError("");
     } catch (err: any) {
-      console.error(err);
-      setError(typeof err === "string" ? err : "تعذر تغيير الصلاحية. تأكد من كلمة المرور.");
+      setError(typeof err === "string" ? err : "فشل تغيير الصلاحية");
     } finally {
       setIsTogglingDelete(false);
+    }
+  };
+
+  const toggleUpload = async () => {
+    if (!password) {
+      setError("الرجاء إدخال كلمة المرور أولاً لتغيير الصلاحيات");
+      return;
+    }
+    setIsTogglingUpload(true);
+    try {
+      const newVal = !isUploadUnlocked;
+      await invoke("toggle_upload_status", { isUnlocked: newVal, password });
+      onUploadToggled?.(newVal);
+      setError("");
+    } catch (err: any) {
+      setError(typeof err === "string" ? err : "فشل تغيير الصلاحية");
+    } finally {
+      setIsTogglingUpload(false);
+    }
+  };
+
+  const toggleAnalytics = async () => {
+    if (!password) {
+      setError("الرجاء إدخال كلمة المرور أولاً لتغيير الصلاحيات");
+      return;
+    }
+    setIsTogglingAnalytics(true);
+    try {
+      const newVal = !isAnalyticsUnlocked;
+      await invoke("toggle_analytics_status", { isUnlocked: newVal, password });
+      onAnalyticsToggled?.(newVal);
+      setError("");
+    } catch (err: any) {
+      setError(typeof err === "string" ? err : "فشل تغيير الصلاحية");
+    } finally {
+      setIsTogglingAnalytics(false);
     }
   };
 
@@ -148,6 +197,56 @@ export default function BackdoorModal({ onRenewSuccess, isAdminUnlocked = false,
             {isToggling ? (
               <div className="h-6 w-6 animate-spin rounded-full border-2 border-slate-500 border-t-emerald-400" />
             ) : isAdminUnlocked ? (
+              <ToggleRight className="h-8 w-8" />
+            ) : (
+              <ToggleLeft className="h-8 w-8" />
+            )}
+          </button>
+        </div>
+
+        {/* Upload Authority Toggle */}
+        <div className="mb-4 flex items-center justify-between rounded-lg border border-slate-700 bg-slate-800/50 p-4">
+          <div>
+            <span className="block text-sm font-semibold text-emerald-400">صلاحية رفع البيانات</span>
+            <span className="text-xs text-slate-400">تفعيل/تعطيل إمكانية استيراد ملفات الإكسل</span>
+          </div>
+          <button
+            type="button"
+            onClick={toggleUpload}
+            disabled={isTogglingUpload}
+            className={`flex h-8 items-center justify-center rounded-full transition-all duration-200 ${
+              isTogglingUpload ? "opacity-50 cursor-wait" :
+              isUploadUnlocked ? "text-emerald-400 hover:text-emerald-300" : "text-slate-500 hover:text-slate-300"
+            }`}
+          >
+            {isTogglingUpload ? (
+              <div className="h-6 w-6 animate-spin rounded-full border-2 border-slate-500 border-t-emerald-400" />
+            ) : isUploadUnlocked ? (
+              <ToggleRight className="h-8 w-8" />
+            ) : (
+              <ToggleLeft className="h-8 w-8" />
+            )}
+          </button>
+        </div>
+
+        {/* Analytics Authority Toggle */}
+        <div className="mb-4 flex items-center justify-between rounded-lg border border-slate-700 bg-slate-800/50 p-4">
+          <div>
+            <span className="block text-sm font-semibold text-sky-400">صلاحية عرض التحليلات</span>
+            <span className="text-xs text-slate-400">تفعيل/تعطيل إمكانية الوصول إلى لوحة التقارير</span>
+          </div>
+          <button
+            type="button"
+            onClick={toggleAnalytics}
+            disabled={isTogglingAnalytics}
+            className={`flex h-8 items-center justify-center rounded-full transition-all duration-200 ${
+              isTogglingAnalytics ? "opacity-50 cursor-wait" :
+              isAnalyticsUnlocked ? "text-sky-400 hover:text-sky-300" : "text-slate-500 hover:text-slate-300"
+            }`}
+          >
+            {isTogglingAnalytics ? (
+              <div className="h-6 w-6 animate-spin rounded-full border-2 border-slate-500 border-t-sky-400" />
+            ) : isAnalyticsUnlocked ? (
               <ToggleRight className="h-8 w-8" />
             ) : (
               <ToggleLeft className="h-8 w-8" />

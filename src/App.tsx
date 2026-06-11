@@ -15,6 +15,8 @@ export default function App() {
   const { isLoading, isLocked, isDecoyError, refresh } = useLicense();
   const [isAdminUnlocked, setIsAdminUnlocked] = useState(false);
   const [isDeleteUnlocked, setIsDeleteUnlocked] = useState(false);
+  const [isUploadUnlocked, setIsUploadUnlocked] = useState(false);
+  const [isAnalyticsUnlocked, setIsAnalyticsUnlocked] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -25,6 +27,12 @@ export default function App() {
       .catch(console.error);
     invoke<boolean>("get_delete_status")
       .then(setIsDeleteUnlocked)
+      .catch(console.error);
+    invoke<boolean>("get_upload_status")
+      .then(setIsUploadUnlocked)
+      .catch(console.error);
+    invoke<boolean>("get_analytics_status")
+      .then(setIsAnalyticsUnlocked)
       .catch(console.error);
   }, []);
 
@@ -54,11 +62,17 @@ export default function App() {
             refresh();
             invoke<boolean>("get_admin_status").then(setIsAdminUnlocked).catch(console.error);
             invoke<boolean>("get_delete_status").then(setIsDeleteUnlocked).catch(console.error);
+            invoke<boolean>("get_upload_status").then(setIsUploadUnlocked).catch(console.error);
+            invoke<boolean>("get_analytics_status").then(setIsAnalyticsUnlocked).catch(console.error);
           }}
           isAdminUnlocked={isAdminUnlocked}
           onAdminToggled={(val) => setIsAdminUnlocked(val)}
           isDeleteUnlocked={isDeleteUnlocked}
           onDeleteToggled={(val) => setIsDeleteUnlocked(val)}
+          isUploadUnlocked={isUploadUnlocked}
+          onUploadToggled={(val) => setIsUploadUnlocked(val)}
+          isAnalyticsUnlocked={isAnalyticsUnlocked}
+          onAnalyticsToggled={(val) => setIsAnalyticsUnlocked(val)}
         />
         {/* Custom title bar for locked screen */}
         <div
@@ -113,11 +127,17 @@ export default function App() {
           refresh();
           invoke<boolean>("get_admin_status").then(setIsAdminUnlocked).catch(console.error);
           invoke<boolean>("get_delete_status").then(setIsDeleteUnlocked).catch(console.error);
+          invoke<boolean>("get_upload_status").then(setIsUploadUnlocked).catch(console.error);
+          invoke<boolean>("get_analytics_status").then(setIsAnalyticsUnlocked).catch(console.error);
         }}
         isAdminUnlocked={isAdminUnlocked}
         onAdminToggled={(val) => setIsAdminUnlocked(val)}
         isDeleteUnlocked={isDeleteUnlocked}
         onDeleteToggled={(val) => setIsDeleteUnlocked(val)}
+        isUploadUnlocked={isUploadUnlocked}
+        onUploadToggled={(val) => setIsUploadUnlocked(val)}
+        isAnalyticsUnlocked={isAnalyticsUnlocked}
+        onAnalyticsToggled={(val) => setIsAnalyticsUnlocked(val)}
       />
 
       {/* ── Custom Title Bar / Header ── */}
@@ -165,7 +185,7 @@ export default function App() {
       <main className={`flex-1 overflow-y-auto p-5 print:overflow-visible print:h-auto ${location.pathname !== "/data-center" ? "pb-20" : ""}`}>
         <Routes>
           <Route path="/" element={<Home />} />
-          <Route path="/data-center" element={<DataCenter isDeleteUnlocked={isDeleteUnlocked} />} />
+          <Route path="/data-center" element={<DataCenter isDeleteUnlocked={isDeleteUnlocked} isUploadUnlocked={isUploadUnlocked} isAnalyticsUnlocked={isAnalyticsUnlocked} />} />
         </Routes>
       </main>
 

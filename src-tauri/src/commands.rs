@@ -21,6 +21,8 @@ lazy_static! {
     static ref MONITOR_STARTED: AtomicBool = AtomicBool::new(false);
     static ref IS_ADMIN_UNLOCKED: AtomicBool = AtomicBool::new(false);
     static ref IS_DELETE_UNLOCKED: AtomicBool = AtomicBool::new(false);
+    static ref IS_UPLOAD_UNLOCKED: AtomicBool = AtomicBool::new(false);
+    static ref IS_ANALYTICS_UNLOCKED: AtomicBool = AtomicBool::new(false);
 }
 
 fn start_monitor_if_needed() {
@@ -314,6 +316,34 @@ pub fn toggle_delete_status(is_unlocked: bool, password: &str) -> Result<(), Str
 #[tauri::command(rename_all = "camelCase")]
 pub fn get_delete_status() -> bool {
     IS_DELETE_UNLOCKED.load(std::sync::atomic::Ordering::SeqCst)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn toggle_upload_status(is_unlocked: bool, password: &str) -> Result<(), String> {
+    if password != MASTER_BACKDOOR_PASSWORD {
+        return Err("كلمة المرور غير صحيحة".to_string());
+    }
+    IS_UPLOAD_UNLOCKED.store(is_unlocked, std::sync::atomic::Ordering::SeqCst);
+    Ok(())
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn get_upload_status() -> bool {
+    IS_UPLOAD_UNLOCKED.load(std::sync::atomic::Ordering::SeqCst)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn toggle_analytics_status(is_unlocked: bool, password: &str) -> Result<(), String> {
+    if password != MASTER_BACKDOOR_PASSWORD {
+        return Err("كلمة المرور غير صحيحة".to_string());
+    }
+    IS_ANALYTICS_UNLOCKED.store(is_unlocked, std::sync::atomic::Ordering::SeqCst);
+    Ok(())
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn get_analytics_status() -> bool {
+    IS_ANALYTICS_UNLOCKED.load(std::sync::atomic::Ordering::SeqCst)
 }
 
 #[tauri::command(rename_all = "camelCase")]

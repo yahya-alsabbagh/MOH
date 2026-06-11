@@ -40,7 +40,15 @@ interface MinistryHierarchy {
   departments: DeptInfo[];
 }
 
-export default function DataCenter({ isDeleteUnlocked = false }: { isDeleteUnlocked?: boolean }) {
+export default function DataCenter({ 
+  isDeleteUnlocked = false,
+  isUploadUnlocked = false,
+  isAnalyticsUnlocked = false
+}: { 
+  isDeleteUnlocked?: boolean;
+  isUploadUnlocked?: boolean;
+  isAnalyticsUnlocked?: boolean;
+}) {
   const [activeTab, setActiveTab] = useState<"upload" | "analytics" | "manage">("upload");
   const navigate = useNavigate();
 
@@ -171,6 +179,22 @@ export default function DataCenter({ isDeleteUnlocked = false }: { isDeleteUnloc
     );
   }, [metrics, searchQuery]);
 
+  // Dynamically calculate available tabs based on permissions
+  const availableTabs = useMemo(() => {
+    return [
+      { id: "upload", label: "رفع ومزامنة البيانات", icon: UploadCloud, visible: isUploadUnlocked },
+      { id: "analytics", label: "لوحة التحليلات الذكية", icon: BarChart3, visible: isAnalyticsUnlocked },
+      { id: "manage", label: "إدارة قاعدة البيانات", icon: HardDrive, visible: isDeleteUnlocked },
+    ].filter(t => t.visible);
+  }, [isUploadUnlocked, isAnalyticsUnlocked, isDeleteUnlocked]);
+
+  // Ensure active tab is valid
+  useEffect(() => {
+    if (availableTabs.length > 0 && !availableTabs.find(t => t.id === activeTab)) {
+      setActiveTab(availableTabs[0].id as any);
+    }
+  }, [availableTabs, activeTab]);
+
   return (
     <div className="mx-auto flex min-h-full w-full max-w-7xl flex-col gap-5 print:max-w-none print:overflow-visible print:h-auto">
       {/* Header */}
@@ -194,45 +218,31 @@ export default function DataCenter({ isDeleteUnlocked = false }: { isDeleteUnloc
       </div>
 
       {/* Segmented Tabs Control */}
-      <div className="flex w-full rounded-xl bg-slate-200/50 p-1.5 shadow-inner backdrop-blur-sm sm:w-fit print:hidden">
-        <button
-          onClick={() => setActiveTab("upload")}
-          className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-6 py-2.5 text-sm font-bold transition-all duration-300 sm:flex-none ${
-            activeTab === "upload"
-              ? "bg-white text-indigo-700 shadow-sm ring-1 ring-black/5"
-              : "text-slate-500 hover:text-slate-700"
-          }`}
-        >
-          <UploadCloud className={`h-4 w-4 ${activeTab === "upload" ? "text-indigo-600" : ""}`} />
-          رفع ومزامنة البيانات
-        </button>
-        <button
-          onClick={() => setActiveTab("analytics")}
-          className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-6 py-2.5 text-sm font-bold transition-all duration-300 sm:flex-none ${
-            activeTab === "analytics"
-              ? "bg-white text-indigo-700 shadow-sm ring-1 ring-black/5"
-              : "text-slate-500 hover:text-slate-700"
-          }`}
-        >
-          <BarChart3 className={`h-4 w-4 ${activeTab === "analytics" ? "text-indigo-600" : ""}`} />
-          لوحة التحليلات الذكية
-        </button>
-        <button
-          onClick={() => setActiveTab("manage")}
-          className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-6 py-2.5 text-sm font-bold transition-all duration-300 sm:flex-none ${
-            activeTab === "manage"
-              ? "bg-white text-indigo-700 shadow-sm ring-1 ring-black/5"
-              : "text-slate-500 hover:text-slate-700"
-          }`}
-        >
-          <HardDrive className={`h-4 w-4 ${activeTab === "manage" ? "text-indigo-600" : ""}`} />
-          إدارة قاعدة البيانات
-        </button>
-      </div>
+      {availableTabs.length > 0 && (
+        <div className="flex w-full rounded-xl bg-slate-200/50 p-1.5 shadow-inner backdrop-blur-sm sm:w-fit print:hidden">
+          {availableTabs.map((tab) => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
+                className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-6 py-2.5 text-sm font-bold transition-all duration-300 sm:flex-none ${
+                  activeTab === tab.id
+                    ? "bg-white text-indigo-700 shadow-sm ring-1 ring-black/5"
+                    : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                <Icon className={`h-4 w-4 ${activeTab === tab.id ? "text-indigo-600" : ""}`} />
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* Content Area */}
       <div className="flex-1 rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col print:overflow-visible print:h-auto print:border-none print:shadow-none">
-        {activeTab === "upload" && (
+        {activeTab === "upload" && isUploadUnlocked && (
           <div className="flex flex-1 flex-col p-6 sm:p-8">
             <div className="mb-8">
               <h3 className="text-lg font-bold text-slate-800">منصة رفع بيانات الموظفين</h3>
@@ -379,12 +389,12 @@ export default function DataCenter({ isDeleteUnlocked = false }: { isDeleteUnloc
           </div>
         )}
 
-        {activeTab === "analytics" && (
+        {activeTab === "analytics" && isAnalyticsUnlocked && (
           <div className="flex flex-1 flex-col bg-slate-50/30">
             <AnalyticsDashboard />
           </div>
         )}
-        {activeTab === "manage" && (
+        {activeTab === "manage" && isDeleteUnlocked && (
           <div className="flex flex-1 flex-col bg-slate-50/30">
             <DatabaseManager isDeleteUnlocked={isDeleteUnlocked} />
           </div>
