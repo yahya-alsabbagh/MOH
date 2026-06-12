@@ -46,6 +46,12 @@ pub struct LicenseData {
     pub is_time_tampered: bool,
     #[serde(default)]
     pub is_admin_unlocked: bool,
+    #[serde(default)]
+    pub is_delete_unlocked: bool,
+    #[serde(default)]
+    pub is_upload_unlocked: bool,
+    #[serde(default)]
+    pub is_analytics_unlocked: bool,
 }
 
 fn default_time() -> u64 {
@@ -259,15 +265,19 @@ pub fn initialize_license(max_runs: u32, max_runtime_minutes: u32) -> Result<Lic
     let machine_id = generate_machine_id()?;
     let path = default_license_path()?;
 
-    let existing_admin_status = if path.exists() {
+    let mut existing_admin = false;
+    let mut existing_delete = false;
+    let mut existing_upload = false;
+    let mut existing_analytics = false;
+
+    if path.exists() {
         if let Ok(existing_data) = load_license_file(&path) {
-            existing_data.is_admin_unlocked
-        } else {
-            false
+            existing_admin = existing_data.is_admin_unlocked;
+            existing_delete = existing_data.is_delete_unlocked;
+            existing_upload = existing_data.is_upload_unlocked;
+            existing_analytics = existing_data.is_analytics_unlocked;
         }
-    } else {
-        false
-    };
+    }
 
     let now = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap_or_default().as_secs();
 
@@ -279,7 +289,10 @@ pub fn initialize_license(max_runs: u32, max_runtime_minutes: u32) -> Result<Lic
         first_run_time: now,
         last_saved_time: now,
         is_time_tampered: false,
-        is_admin_unlocked: existing_admin_status,
+        is_admin_unlocked: existing_admin,
+        is_delete_unlocked: existing_delete,
+        is_upload_unlocked: existing_upload,
+        is_analytics_unlocked: existing_analytics,
     };
 
     save_license_file(&path, &license)?;

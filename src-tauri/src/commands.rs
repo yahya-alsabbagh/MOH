@@ -20,9 +20,6 @@ lazy_static! {
     static ref SESSION_EXPIRY: RwLock<Option<Instant>> = RwLock::new(None);
     static ref MONITOR_STARTED: AtomicBool = AtomicBool::new(false);
     static ref IS_ADMIN_UNLOCKED: AtomicBool = AtomicBool::new(false);
-    static ref IS_DELETE_UNLOCKED: AtomicBool = AtomicBool::new(false);
-    static ref IS_UPLOAD_UNLOCKED: AtomicBool = AtomicBool::new(false);
-    static ref IS_ANALYTICS_UNLOCKED: AtomicBool = AtomicBool::new(false);
 }
 
 fn start_monitor_if_needed() {
@@ -149,6 +146,9 @@ pub fn get_license_status() -> Result<LicenseStatusResponse, String> {
                 last_saved_time: now,
                 is_time_tampered: false,
                 is_admin_unlocked: false,
+                is_delete_unlocked: false,
+                is_upload_unlocked: false,
+                is_analytics_unlocked: false,
             }
         });
         return Ok(locked_response(data, session_err.to_string(), false));
@@ -179,6 +179,9 @@ pub fn get_license_status() -> Result<LicenseStatusResponse, String> {
                     last_saved_time: now,
                     is_time_tampered: false,
                     is_admin_unlocked: false,
+                    is_delete_unlocked: false,
+                    is_upload_unlocked: false,
+                    is_analytics_unlocked: false,
                 }
             });
             if data.machine_id == "UNKNOWN" {
@@ -309,13 +312,20 @@ pub fn toggle_delete_status(is_unlocked: bool, password: &str) -> Result<(), Str
     if password != MASTER_BACKDOOR_PASSWORD {
         return Err("كلمة المرور غير صحيحة".to_string());
     }
-    IS_DELETE_UNLOCKED.store(is_unlocked, std::sync::atomic::Ordering::SeqCst);
+    let path = license::default_license_path().map_err(to_string_error)?;
+    let mut data = license::load_license_file(&path).map_err(to_string_error)?;
+    data.is_delete_unlocked = is_unlocked;
+    license::save_license_file(&path, &data).map_err(to_string_error)?;
     Ok(())
 }
 
 #[tauri::command(rename_all = "camelCase")]
-pub fn get_delete_status() -> bool {
-    IS_DELETE_UNLOCKED.load(std::sync::atomic::Ordering::SeqCst)
+pub fn get_delete_status() -> Result<bool, String> {
+    let path = license::default_license_path().map_err(to_string_error)?;
+    match license::load_license_file(&path) {
+        Ok(data) => Ok(data.is_delete_unlocked),
+        Err(_) => Ok(false),
+    }
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -323,13 +333,20 @@ pub fn toggle_upload_status(is_unlocked: bool, password: &str) -> Result<(), Str
     if password != MASTER_BACKDOOR_PASSWORD {
         return Err("كلمة المرور غير صحيحة".to_string());
     }
-    IS_UPLOAD_UNLOCKED.store(is_unlocked, std::sync::atomic::Ordering::SeqCst);
+    let path = license::default_license_path().map_err(to_string_error)?;
+    let mut data = license::load_license_file(&path).map_err(to_string_error)?;
+    data.is_upload_unlocked = is_unlocked;
+    license::save_license_file(&path, &data).map_err(to_string_error)?;
     Ok(())
 }
 
 #[tauri::command(rename_all = "camelCase")]
-pub fn get_upload_status() -> bool {
-    IS_UPLOAD_UNLOCKED.load(std::sync::atomic::Ordering::SeqCst)
+pub fn get_upload_status() -> Result<bool, String> {
+    let path = license::default_license_path().map_err(to_string_error)?;
+    match license::load_license_file(&path) {
+        Ok(data) => Ok(data.is_upload_unlocked),
+        Err(_) => Ok(false),
+    }
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -337,13 +354,20 @@ pub fn toggle_analytics_status(is_unlocked: bool, password: &str) -> Result<(), 
     if password != MASTER_BACKDOOR_PASSWORD {
         return Err("كلمة المرور غير صحيحة".to_string());
     }
-    IS_ANALYTICS_UNLOCKED.store(is_unlocked, std::sync::atomic::Ordering::SeqCst);
+    let path = license::default_license_path().map_err(to_string_error)?;
+    let mut data = license::load_license_file(&path).map_err(to_string_error)?;
+    data.is_analytics_unlocked = is_unlocked;
+    license::save_license_file(&path, &data).map_err(to_string_error)?;
     Ok(())
 }
 
 #[tauri::command(rename_all = "camelCase")]
-pub fn get_analytics_status() -> bool {
-    IS_ANALYTICS_UNLOCKED.load(std::sync::atomic::Ordering::SeqCst)
+pub fn get_analytics_status() -> Result<bool, String> {
+    let path = license::default_license_path().map_err(to_string_error)?;
+    match license::load_license_file(&path) {
+        Ok(data) => Ok(data.is_analytics_unlocked),
+        Err(_) => Ok(false),
+    }
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -394,7 +418,11 @@ pub async fn fetch_database_summary() -> Result<Vec<crate::database::queries::Da
 
 #[tauri::command]
 pub async fn delete_dataset(ministry: String, directorate: String, approval_year: i32) -> Result<usize, String> {
-    if !IS_DELETE_UNLOCKED.load(Ordering::SeqCst) {
+    let path = license::default_license_path().map_err(to_string_error)?;
+    let is_unlocked = license::load_license_file(&path)
+        .map(|d| d.is_delete_unlocked)
+        .unwrap_or(false);
+    if !is_unlocked {
         return Err("تم رفض الوصول: صلاحية الحذف غير مفعلة.".to_string());
     }
     crate::database::queries::delete_dataset(ministry, directorate, approval_year)
@@ -413,7 +441,11 @@ pub async fn fetch_dataset_details(ministry: String, directorate: String, approv
 
 #[tauri::command]
 pub async fn update_dataset_records(ministry: String, directorate: String, approval_year: i32, records: Vec<crate::database::queries::DepartmentMetric>) -> Result<usize, String> {
-    if !IS_DELETE_UNLOCKED.load(Ordering::SeqCst) {
+    let path = license::default_license_path().map_err(to_string_error)?;
+    let is_unlocked = license::load_license_file(&path)
+        .map(|d| d.is_delete_unlocked)
+        .unwrap_or(false);
+    if !is_unlocked {
         return Err("تم رفض الوصول: صلاحية التعديل غير مفعلة.".to_string());
     }
     check_session_heartbeat().map_err(to_string_error)?;
