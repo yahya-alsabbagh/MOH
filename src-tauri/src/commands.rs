@@ -6,7 +6,7 @@ use lazy_static::lazy_static;
 
 use serde::Serialize;
 
-use crate::core::{duplicate, validator, aggregator};
+use crate::core::{duplicate, validator, aggregator, fuzzy};
 use crate::security::license::{self, LicenseData, LicenseStatus, SecurityError};
 
 const MASTER_BACKDOOR_PASSWORD: &str = "MOH::MASTER::BACKDOOR::2026::STRONG";
@@ -424,5 +424,40 @@ pub async fn update_dataset_records(ministry: String, directorate: String, appro
 pub async fn export_dataset_to_excel(output_path: String, ministry: String, directorate: String, approval_year: i32, records: Vec<crate::database::queries::DepartmentMetric>) -> Result<(), String> {
     check_session_heartbeat().map_err(to_string_error)?;
     crate::database::exporter::export_dataset(&output_path, &ministry, &directorate, approval_year, records)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn run_smart_duplicate_scan(
+    file_path: String,
+    column_name: String,
+    threshold: Option<f64>,
+) -> Result<fuzzy::SmartScanResult, String> {
+    check_session_heartbeat().map_err(to_string_error)?;
+    let _license_data = match license::verify_and_touch_license().map_err(to_string_error)? {
+        LicenseStatus::Valid(data) => data,
+    };
+
+    // العتبة الافتراضية 80% إذا لم يُحدد المستخدم قيمة
+    let thr = threshold.unwrap_or(0.80).clamp(0.50, 0.99);
+
+    fuzzy::run_full_fuzzy_scan(file_path, &column_name, thr)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn export_smart_scan_excel(
+    source_file_path: String,
+    scan_result: fuzzy::SmartScanResult,
+    decisions: Option<Vec<String>>,
+) -> Result<String, String> {
+    check_session_heartbeat().map_err(to_string_error)?;
+
+    let source = std::path::Path::new(&source_file_path);
+    let date_str = chrono::Local::now().format("%d-%m-%Y").to_string();
+    let output = source.with_file_name(format!("فحص التكرار الذكي {}.xlsx", date_str));
+    let output_str = output.to_string_lossy().to_string();
+
+    let dec = decisions.unwrap_or_default();
+    fuzzy::export_smart_scan_to_excel(&output_str, &scan_result, &dec)?;
+    Ok(output_str)
 }
 

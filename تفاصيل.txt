@@ -1,7 +1,7 @@
 cmd /c "npm run tauri dev"
 
 taskkill /F /IM cargo.exe
-
+ 
 
 MOH::MASTER::BACKDOOR::2026::STRONG
 MOH::MASTER77::BACKDOOR::2026::STRONG

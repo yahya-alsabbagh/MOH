@@ -51,7 +51,9 @@ fn main() {
             commands::fetch_hierarchy_options,
             commands::fetch_dataset_details,
             commands::update_dataset_records,
-            commands::export_dataset_to_excel
+            commands::export_dataset_to_excel,
+            commands::run_smart_duplicate_scan,
+            commands::export_smart_scan_excel
         ])
         .run(tauri::generate_context!())
         .expect("failed to run tauri application");

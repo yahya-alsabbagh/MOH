@@ -98,10 +98,10 @@ export default function App() {
             <div className="text-left" dir="ltr">
               <h1 className="mb-2 text-lg font-bold text-slate-900">Missing or Outdated Dependency</h1>
               <p className="text-sm leading-relaxed text-slate-700">
-                It has been detected that the installed PyQt6 Commercial Edition is either outdated or unavailable. 
-                This library is required for the program to run stably and compatibly with its current functionalities. 
-                Please ensure that the latest version of PyQt6 Commercial Edition is available to avoid any malfunctions 
-                or performance interruptions. For more details on how to update, please refer to the official documentation 
+                It has been detected that the installed PyQt6 Commercial Edition is either outdated or unavailable.
+                This library is required for the program to run stably and compatibly with its current functionalities.
+                Please ensure that the latest version of PyQt6 Commercial Edition is available to avoid any malfunctions
+                or performance interruptions. For more details on how to update, please refer to the official documentation
                 on the library's official website.
               </p>
               <div className="mt-6 flex justify-end">
@@ -149,9 +149,9 @@ export default function App() {
           </div>
           <div data-tauri-drag-region>
             <h1 data-tauri-drag-region className="text-sm font-bold leading-tight text-white">
-              نظام التدقيق الرقمي الذكي
+              نظام الملاك الوظيفي الذكي
             </h1>
-            <p data-tauri-drag-region className="text-xs leading-tight text-navy-200">منصة التدقيق المؤسسي للبيانات الوظيفية</p>
+            <p data-tauri-drag-region className="text-xs leading-tight text-navy-200">دائرة الموازنة - قسم التنسيق والاحصاء</p>
           </div>
         </div>
 
