@@ -6,10 +6,12 @@ mod core;
 mod security;
 mod database;
 
+use tauri::Manager;
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .setup(|_app| {
+        .setup(|app| {
             // Increment the run count. If it fails (quota exceeded / decoy missing),
             // the frontend's get_license_status() call will catch it and show the lock screen.
             let _ = crate::security::license::increment_run_count();
@@ -58,3 +60,4 @@ fn main() {
         .run(tauri::generate_context!())
         .expect("failed to run tauri application");
 }
+

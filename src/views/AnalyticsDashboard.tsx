@@ -268,7 +268,7 @@ export default function AnalyticsDashboard() {
       ) : data ? (
         <>
           {/* 2. KPIs & Charts */}
-          <div className="flex flex-col gap-6 shrink-0 overflow-y-auto print:overflow-visible print:h-auto print:gap-4 print:my-4">
+          <div className="flex flex-col gap-6 shrink-0 print:overflow-visible print:h-auto print:gap-4 print:my-4">
             {/* KPI Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 print:gap-2">
               <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-5 shadow-sm print:p-2">
@@ -312,7 +312,7 @@ export default function AnalyticsDashboard() {
             </div>
 
             {/* Toggle Charts Visibility Button */}
-            <div className="flex justify-end print:hidden -my-2 relative z-10">
+            <div className="flex justify-end print:hidden mb-2 relative z-10">
               <button
                 onClick={() => setShowCharts(prev => !prev)}
                 className={`rounded-full px-4 py-1.5 text-xs font-bold shadow-sm flex items-center gap-1.5 transition-colors border ${
@@ -375,20 +375,26 @@ export default function AnalyticsDashboard() {
               
               {/* Gender Parity */}
               <div className={`rounded-xl border border-slate-200 bg-slate-50 p-5 shadow-sm flex flex-col print:p-2 print:break-inside-avoid ${isPrintMode ? '' : 'overflow-hidden'}`}>
-                <h4 className="text-sm font-bold text-slate-700 mb-4 print:mb-1">العناوين الوظيفية</h4>
+                <div className="flex items-center justify-between mb-4 print:mb-1">
+                  <h4 className="text-sm font-bold text-slate-700">العناوين الوظيفية</h4>
+                  <div className="flex items-center gap-3 text-[11px] font-bold text-slate-600" dir="rtl">
+                    <div className="flex items-center gap-1.5"><span className="w-3 h-3 bg-blue-500 rounded-sm shrink-0"></span> ذكور</div>
+                    <div className="flex items-center gap-1.5"><span className="w-3 h-3 bg-pink-500 rounded-sm shrink-0"></span> إناث</div>
+                    {data.kpis.total_vacant > 0 && <div className="flex items-center gap-1.5"><span className="w-3 h-3 bg-amber-500 rounded-sm shrink-0"></span> شواغر</div>}
+                  </div>
+                </div>
                 <div className={`flex ${isPrintMode ? '' : 'overflow-hidden'}`} dir="ltr" style={{ height: `${isPrintMode ? parityChartPrintHeight : parityChartHeight}px` }}>
                   <div className="flex-1 overflow-hidden">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart
                         data={data.gender_parity}
                         layout="vertical"
-                        margin={{ top: 30, right: 5, left: 5, bottom: 5 }}
+                        margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
                       >
                         <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#e2e8f0" />
                         <XAxis type="number" hide />
                         <YAxis type="category" dataKey="job_title" hide />
                         <RechartsTooltip cursor={{fill: '#f1f5f9'}} contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}} />
-                        <Legend verticalAlign="top" height={30} wrapperStyle={{fontSize: 12}} />
                         <Bar isAnimationActive={!isPrintMode} dataKey="males" name="ذكور" stackId="a" fill="#3b82f6" radius={[0, 0, 0, 0]} maxBarSize={isPrintMode ? 10 : 18}>
                           <LabelList dataKey="males" position="inside" fill="#000" fontSize={9} fontWeight="bold" formatter={(val: any) => Number(val) > 0 ? Number(val).toLocaleString() : ''} />
                         </Bar>
@@ -477,16 +483,16 @@ export default function AnalyticsDashboard() {
           <div className="flex flex-col flex-1 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm mt-2 min-h-[300px] print:overflow-visible print:h-auto print:block print:break-before-page" style={{ pageBreakBefore: isPrintMode ? 'always' : 'auto' }}>
             <div className="flex-1 overflow-auto print:overflow-visible print:h-auto">
               <table className="w-full text-right text-sm text-slate-600 relative">
-                <thead className="sticky top-0 bg-slate-50 text-xs font-bold uppercase text-slate-700 shadow-sm z-10">
+                <thead className="sticky top-0 bg-slate-50 text-sm font-bold uppercase text-slate-700 shadow-sm z-10">
                   <tr>
                     <th className="px-4 py-3 border-b border-slate-200">الوزارة / الدائرة</th>
                     <th className="px-4 py-3 border-b border-slate-200">العنوان الوظيفي</th>
-                    <th className="px-4 py-3 border-b border-slate-200">الدرجة</th>
-                    <th className="px-4 py-3 border-b border-slate-200">الرمز</th>
-                    <th className="px-4 py-3 border-b border-slate-200 text-center">الذكور</th>
-                    <th className="px-4 py-3 border-b border-slate-200 text-center">الإناث</th>
-                    <th className="px-4 py-3 border-b border-slate-200 text-center text-amber-600">الشواغر</th>
-                    <th className="px-4 py-3 border-b border-slate-200 text-center">المجموع</th>
+                    <th className="px-4 py-3 border-b border-slate-200 text-base">الدرجة</th>
+                    <th className="px-4 py-3 border-b border-slate-200 text-base">الرمز</th>
+                    <th className="px-4 py-3 border-b border-slate-200 text-center text-base">الذكور</th>
+                    <th className="px-4 py-3 border-b border-slate-200 text-center text-base">الإناث</th>
+                    <th className="px-4 py-3 border-b border-slate-200 text-center text-amber-600 text-base">الشواغر</th>
+                    <th className="px-4 py-3 border-b border-slate-200 text-center text-base">المجموع</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -530,18 +536,18 @@ export default function AnalyticsDashboard() {
                                   <td className="px-4 py-2 font-bold text-indigo-700 text-xs">{m.job_title || "-"}</td>
                                   <td className="px-4 py-2"><span className="inline-flex rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-600 border border-slate-200">{m.job_grade || "-"}</span></td>
                                   <td className="px-4 py-2 font-mono text-[10px] text-slate-500">{m.job_code || "-"}</td>
-                                  <td className="px-4 py-2 text-center font-semibold text-xs">{m.male_count ?? "-"}</td>
-                                  <td className="px-4 py-2 text-center font-semibold text-xs">{m.female_count ?? "-"}</td>
-                                  <td className="px-4 py-2 text-center font-bold text-amber-600 text-xs">{m.vacant_count ?? "-"}</td>
-                                  <td className="px-4 py-2 text-center font-bold text-emerald-600 text-xs">{(m.male_count ?? 0) + (m.female_count ?? 0)}</td>
+                                  <td className="px-4 py-2 text-center font-bold text-base">{m.male_count ?? "-"}</td>
+                                  <td className="px-4 py-2 text-center font-bold text-base">{m.female_count ?? "-"}</td>
+                                  <td className="px-4 py-2 text-center font-black text-amber-600 text-base">{m.vacant_count ?? "-"}</td>
+                                  <td className="px-4 py-2 text-center font-black text-emerald-600 text-base">{(m.male_count ?? 0) + (m.female_count ?? 0)}</td>
                                 </tr>
                               ))}
                               {/* Subtotal Row for this Grade */}
                               <tr className="bg-amber-50/50">
-                                <td colSpan={7} className="px-4 py-3 font-bold text-slate-800 text-left border-y border-amber-100">
+                                <td colSpan={7} className="px-4 py-3 font-bold text-slate-800 text-left border-y border-amber-100 text-base">
                                   مجموع الدرجة ({group.grade}):
                                 </td>
-                                <td className="px-4 py-3 text-center font-bold text-amber-600 border-y border-amber-100 text-sm">
+                                <td className="px-4 py-3 text-center font-black text-amber-600 border-y border-amber-100 text-lg">
                                   {totalGradeCount.toLocaleString()}
                                 </td>
                               </tr>
@@ -550,10 +556,10 @@ export default function AnalyticsDashboard() {
                         })}
                         {/* Grand Total Row */}
                         <tr className="bg-slate-100">
-                          <td colSpan={7} className="px-4 py-4 font-black text-slate-800 text-left border-y border-slate-300">
+                          <td colSpan={7} className="px-4 py-4 font-black text-slate-800 text-left border-y border-slate-300 text-lg">
                             المجموع الكلي:
                           </td>
-                          <td className="px-4 py-4 text-center font-black text-indigo-700 border-y border-slate-300 text-lg">
+                          <td className="px-4 py-4 text-center font-black text-indigo-700 border-y border-slate-300 text-2xl">
                             {data.kpis.total_count.toLocaleString()}
                           </td>
                         </tr>
@@ -564,30 +570,11 @@ export default function AnalyticsDashboard() {
               </table>
             </div>
             
-            {/* Pagination */}
-            <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50 px-4 py-3 shrink-0 print:hidden">
-              <span className="text-xs text-slate-500">
-                إجمالي السجلات: <span className="font-bold text-slate-700">{data.total_records.toLocaleString()}</span>
+            {/* Footer / Total Count Only (No Pagination) */}
+            <div className="flex items-center justify-start border-t border-slate-200 bg-slate-50 px-4 py-3 shrink-0 print:hidden">
+              <span className="text-sm text-slate-500">
+                إجمالي السجلات المعروضة: <span className="font-bold text-slate-700">{data.total_records.toLocaleString()}</span>
               </span>
-              <div className="flex items-center gap-2">
-                <button
-                  disabled={page === 0}
-                  onClick={() => setPage(p => p - 1)}
-                  className="p-1 rounded bg-white border border-slate-200 text-slate-600 disabled:opacity-50 hover:bg-slate-100 transition"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </button>
-                <span className="text-xs font-bold text-slate-600">
-                  {page + 1} / {totalPages || 1}
-                </span>
-                <button
-                  disabled={page >= totalPages - 1}
-                  onClick={() => setPage(p => p + 1)}
-                  className="p-1 rounded bg-white border border-slate-200 text-slate-600 disabled:opacity-50 hover:bg-slate-100 transition"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
-              </div>
             </div>
           </div>
         </>

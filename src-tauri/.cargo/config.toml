@@ -1,3 +1,0 @@
-[env]
-# Prefer prebuilt DuckDB binaries instead of building from source on Windows.
-DUCKDB_DOWNLOAD_LIB = "1"

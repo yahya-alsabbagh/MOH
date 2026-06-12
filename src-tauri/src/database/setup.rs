@@ -62,6 +62,8 @@ pub fn initialize_db() -> Result<(), String> {
         )",
     ).map_err(|e| e.to_string())?;
 
+
+
     seed_hierarchy_lookup(&mut conn)?;
 
     Ok(())

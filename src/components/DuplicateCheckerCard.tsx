@@ -7,7 +7,6 @@ import {
   AlertTriangle,
   Loader2,
   Brain,
-  FileSpreadsheet,
   Eye,
 } from "lucide-react";
 import ConflictResolution from "./ConflictResolution";
@@ -56,11 +55,10 @@ interface SmartScanResult {
 // ═══════════════════════════════════════════════════════════
 export default function DuplicateCheckerCard({ filePath, headers }: Props) {
   const [columnName, setColumnName] = useState<string>("");
-  const [isProcessing, setIsProcessing] = useState(false);
   const [isSmartScanning, setIsSmartScanning] = useState(false);
   const [result, setResult] = useState<ResultState>({ kind: "idle" });
 
-  // Smart scan state
+  // Scan results
   const [smartResult, setSmartResult] = useState<SmartScanResult | null>(null);
   const [showConflictHub, setShowConflictHub] = useState(false);
 
@@ -70,32 +68,24 @@ export default function DuplicateCheckerCard({ filePath, headers }: Props) {
   }, [filePath]);
 
   const isDisabled = !filePath;
+  const isScanning = isSmartScanning;
 
   // ── Smart Fuzzy Scan ──
   const runSmartScan = async () => {
-    if (!filePath) {
-      setResult({ kind: "error", message: "يرجى رفع الملف أولاً من الأعلى." });
-      return;
-    }
-    if (!columnName) {
-      setResult({ kind: "error", message: "يرجى اختيار عمود البحث عن التكرار." });
+    if (!filePath || !columnName) {
+      setResult({ kind: "error", message: !filePath ? "يرجى رفع الملف أولاً." : "يرجى اختيار عمود البحث." });
       return;
     }
     setIsSmartScanning(true);
     setResult({ kind: "idle" });
     try {
       const res = await invoke<SmartScanResult>("run_smart_duplicate_scan", {
-        filePath,
-        columnName,
-        threshold: 0.90,
+        filePath, columnName, threshold: 0.90,
       });
       setSmartResult(res);
       setShowConflictHub(true);
     } catch (err: any) {
-      setResult({
-        kind: "error",
-        message: typeof err === "string" ? err : (err?.message ?? "تعذر إتمام الفحص الذكي."),
-      });
+      setResult({ kind: "error", message: typeof err === "string" ? err : "تعذر إتمام الفحص الذكي." });
     } finally {
       setIsSmartScanning(false);
     }
@@ -111,18 +101,16 @@ export default function DuplicateCheckerCard({ filePath, headers }: Props) {
           }`}
       >
         {/* Loading Overlay */}
-        {(isProcessing || isSmartScanning) && (
+        {isScanning && (
           <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white/90 backdrop-blur-[2px]">
-            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-navy-50 shadow-inner">
+            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full shadow-inner bg-navy-50">
               <Loader2 className="h-6 w-6 animate-spin text-navy-600" />
             </div>
             <p className="text-sm font-bold text-slate-800">
-              {isSmartScanning ? "جاري الفحص الذكي..." : "جاري فحص التكرارات..."}
+              جاري الفحص الذكي...
             </p>
             <p className="mt-1 text-xs font-medium text-slate-500">
-              {isSmartScanning
-                ? "تحليل التشابه على جميع أنوية المعالج"
-                : "يتم بناء الإكسل النهائي"}
+              تحليل التشابه على جميع أنوية المعالج
             </p>
           </div>
         )}
@@ -162,9 +150,7 @@ export default function DuplicateCheckerCard({ filePath, headers }: Props) {
               >
                 <option value="">— اختر العمود —</option>
                 {headers.map((h) => (
-                  <option key={h} value={h}>
-                    {h}
-                  </option>
+                  <option key={h} value={h}>{h}</option>
                 ))}
               </select>
               <ChevronDown className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -173,22 +159,18 @@ export default function DuplicateCheckerCard({ filePath, headers }: Props) {
 
           {/* Action Buttons */}
           <div className="mt-auto flex flex-col gap-2">
-            {/* Smart Fuzzy Scan Button */}
+            {/* Smart Fuzzy Scan */}
             <button
               type="button"
               onClick={runSmartScan}
-              disabled={isDisabled || isProcessing || isSmartScanning}
+              disabled={isDisabled || isScanning}
               className="inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-l from-violet-600 to-indigo-700 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition-all duration-300 hover:from-violet-500 hover:to-indigo-600 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-50 active:scale-95"
             >
-              {isSmartScanning ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Brain className="h-4 w-4" />
-              )}
+              {isSmartScanning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Brain className="h-4 w-4" />}
               {isSmartScanning ? "جارٍ التحليل الذكي..." : "فحص التكرار الذكي"}
             </button>
 
-            {/* Show Last Smart Scan Results */}
+            {/* Show Last Results */}
             {smartResult && !showConflictHub && (
               <button
                 type="button"
@@ -196,12 +178,12 @@ export default function DuplicateCheckerCard({ filePath, headers }: Props) {
                 className="inline-flex items-center justify-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-2 text-xs font-bold text-indigo-700 transition-all duration-200 hover:bg-indigo-100 active:scale-95"
               >
                 <Eye className="h-3.5 w-3.5" />
-                عرض آخر نتائج الفحص الذكي
+                عرض آخر نتائج الفحص
               </button>
             )}
           </div>
 
-          {/* Result */}
+          {/* Result Messages */}
           {result.kind === "success" && (
             <div className="flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-xs text-emerald-800">
               <CheckCircle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-emerald-600" />
@@ -220,7 +202,7 @@ export default function DuplicateCheckerCard({ filePath, headers }: Props) {
         </div>
       </div>
 
-      {/* Conflict Resolution Hub (Modal) */}
+      {/* Conflict Resolution Hub */}
       {smartResult && (
         <ConflictResolution
           isOpen={showConflictHub}
