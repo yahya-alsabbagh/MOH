@@ -6,3 +6,8 @@ taskkill /F /IM cargo.exe
 MOH::MASTER::BACKDOOR::2026::STRONG
 MOH::MASTER77::BACKDOOR::2026::STRONG
 MOH::MASTER777::BACKDOOR2018::2026::STRONG_0
+
+
+
+#Database
+C:\Users\lraq laptop\AppData\Roaming\moh\auth\data\analytics.db

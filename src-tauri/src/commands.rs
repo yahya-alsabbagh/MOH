@@ -493,4 +493,98 @@ pub fn export_smart_scan_excel(
     Ok(output_str)
 }
 
+// ═══════════════════════════════════════════════════════════════════════
+// Employee Ingestion Pipeline Commands
+// ═══════════════════════════════════════════════════════════════════════
 
+#[tauri::command(rename_all = "camelCase")]
+pub fn import_employees_to_db(
+    file_path: String,
+    ministry: String,
+    directorate: String,
+    year: String,
+    name_column: String,
+    column_mapping: Option<std::collections::HashMap<String, String>>,
+) -> Result<usize, String> {
+    check_session_heartbeat().map_err(to_string_error)?;
+    crate::database::employee_importer::import_employees_to_db(
+        file_path, ministry, directorate, year, name_column, column_mapping,
+    )
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn align_employee_columns(
+    headers: Vec<String>,
+    name_column: String,
+) -> Result<Vec<crate::database::employee_importer::ColumnAlignment>, String> {
+    crate::database::employee_importer::align_employee_columns(headers, name_column)
+}
+
+#[tauri::command]
+pub async fn fetch_employees_summary() -> Result<Vec<crate::database::employee_queries::EmployeeSummary>, String> {
+    crate::database::employee_queries::fetch_employees_summary()
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn fetch_employee_details(
+    ministry: String,
+    directorate: String,
+    approval_year: i32,
+    page: usize,
+    page_size: usize,
+    search_column: Option<String>,
+    search_term: Option<String>,
+) -> Result<crate::database::employee_queries::EmployeeDetailsResponse, String> {
+    check_session_heartbeat().map_err(to_string_error)?;
+    crate::database::employee_queries::fetch_employee_details(
+        ministry, directorate, approval_year, page, page_size,
+        search_column, search_term,
+    )
+}
+
+#[tauri::command]
+pub async fn fetch_employee_columns() -> Result<Vec<String>, String> {
+    crate::database::employee_queries::fetch_employee_columns()
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub async fn delete_employee_dataset(
+    ministry: String,
+    directorate: String,
+    approval_year: i32,
+) -> Result<usize, String> {
+    let path = license::default_license_path().map_err(to_string_error)?;
+    let is_unlocked = license::load_license_file(&path)
+        .map(|d| d.is_delete_unlocked)
+        .unwrap_or(false);
+    if !is_unlocked {
+        return Err("تم رفض الوصول: صلاحية الحذف غير مفعلة.".to_string());
+    }
+    crate::database::employee_queries::delete_employee_dataset(ministry, directorate, approval_year)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn export_employees_to_excel(
+    output_path: String,
+    ministry: String,
+    directorate: String,
+    approval_year: i32,
+    search_column: Option<String>,
+    search_term: Option<String>,
+    page: Option<usize>,
+    page_size: Option<usize>,
+) -> Result<String, String> {
+    check_session_heartbeat().map_err(to_string_error)?;
+    crate::database::employee_queries::export_employees_to_excel(
+        output_path, ministry, directorate, approval_year,
+        search_column, search_term, page, page_size,
+    )
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn search_employees_globally(
+    search_term: String,
+) -> Result<Vec<crate::database::employee_queries::GlobalSearchResult>, String> {
+    check_session_heartbeat().map_err(to_string_error)?;
+    crate::database::employee_queries::search_employees_globally(search_term)
+}

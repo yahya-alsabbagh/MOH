@@ -1,12 +1,14 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { Database, UploadCloud, BarChart3, Home, FileSpreadsheet, Building2, CalendarDays, Loader2, Landmark, CheckCircle2, Users, UsersRound, UserMinus, HardDrive, Search } from "lucide-react";
+import { Database, UploadCloud, BarChart3, Home, FileSpreadsheet, Building2, CalendarDays, Loader2, Landmark, CheckCircle2, Users, UsersRound, UserMinus, HardDrive, Search, UserCheck } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { open } from "@tauri-apps/plugin-dialog";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
 import AnalyticsDashboard from "./AnalyticsDashboard";
 import DatabaseManager from "./DatabaseManager";
+import EmployeeManager from "./EmployeeManager";
 import SearchableCombobox from "../components/SearchableCombobox";
+import ColumnAlignmentModal from "../components/ColumnAlignmentModal";
 
 interface DepartmentMetric {
   id: number;
@@ -62,6 +64,18 @@ export default function DataCenter({
   const [insertedCount, setInsertedCount] = useState(0);
   const [errorMsg, setErrorMsg] = useState("");
 
+  // File type selector: "statistics" (old path) or "employees" (new path)
+  const [fileType, setFileType] = useState<"statistics" | "employees">("statistics");
+
+  // Employee-specific state
+  const [excelHeaders, setExcelHeaders] = useState<string[]>([]);
+  const [nameColumn, setNameColumn] = useState("");
+  const [isLoadingHeaders, setIsLoadingHeaders] = useState(false);
+
+  // Column alignment modal state
+  const [alignmentData, setAlignmentData] = useState<{ original: string; suggested: string | null; similarity: number; is_new: boolean }[] | null>(null);
+  const [pendingColumnMapping, setPendingColumnMapping] = useState<Record<string, string>>({});
+
   const dropZoneRef = useRef<HTMLDivElement>(null);
 
   // Analytics State
@@ -102,6 +116,15 @@ export default function DataCenter({
             setFilePath(path);
             setUploadSuccess(false);
             setErrorMsg("");
+            setNameColumn("");
+            setExcelHeaders([]);
+
+            // If employee mode, auto-read headers on drop
+            if (fileType === "employees") {
+              invoke<string[]>("read_excel_headers", { filePath: path })
+                .then(headers => setExcelHeaders(headers.map(h => h.trim().replace(/\n/g, ' ').replace(/  +/g, ' ')).filter(h => h !== "")))
+                .catch(err => console.error("Failed to read headers:", err));
+            }
           }
         }
       }
@@ -110,7 +133,7 @@ export default function DataCenter({
     return () => {
       unlistenPromise.then((unlisten) => unlisten());
     };
-  }, []);
+  }, [fileType]);
 
   useEffect(() => {
     if (activeTab === "analytics") {
@@ -142,6 +165,21 @@ export default function DataCenter({
       setFilePath(selected);
       setUploadSuccess(false);
       setErrorMsg("");
+      setNameColumn("");
+      setExcelHeaders([]);
+
+      // If employee mode, auto-read headers
+      if (fileType === "employees") {
+        setIsLoadingHeaders(true);
+        try {
+          const headers = await invoke<string[]>("read_excel_headers", { filePath: selected });
+          setExcelHeaders(headers.map(h => h.trim().replace(/\n/g, ' ').replace(/  +/g, ' ')).filter(h => h !== ""));
+        } catch (err) {
+          console.error("Failed to read headers:", err);
+        } finally {
+          setIsLoadingHeaders(false);
+        }
+      }
     }
   };
 
@@ -150,15 +188,35 @@ export default function DataCenter({
     setErrorMsg("");
     setUploadSuccess(false);
     try {
-      const count = await invoke<number>("import_data_to_db", {
-        filePath,
-        ministry,
-        directorate,
-        year,
-      });
-      setInsertedCount(count);
-      setUploadSuccess(true);
-      setFilePath("");
+      if (fileType === "statistics") {
+        // Old path — import to department_metrics
+        const count = await invoke<number>("import_data_to_db", {
+          filePath,
+          ministry,
+          directorate,
+          year,
+        });
+        setInsertedCount(count);
+        setUploadSuccess(true);
+        setFilePath("");
+      } else {
+        // New path — check fuzzy column alignment first
+        const headers = excelHeaders.filter(h => h !== nameColumn);
+        const alignments = await invoke<{ original: string; suggested: string | null; similarity: number; is_new: boolean }[]>("align_employee_columns", {
+          headers,
+          nameColumn,
+        });
+
+        if (alignments.length > 0) {
+          // Show alignment modal and wait for user
+          setAlignmentData(alignments);
+          setIsUploading(false);
+          return;
+        }
+
+        // No alignment needed — import directly
+        await doEmployeeImport({});
+      }
     } catch (err: any) {
       console.error(err);
       setErrorMsg(typeof err === "string" ? err : "حدث خطأ أثناء رفع البيانات.");
@@ -167,7 +225,43 @@ export default function DataCenter({
     }
   };
 
-  const isFormValid = filePath && ministry && directorate && year;
+  const doEmployeeImport = async (mapping: Record<string, string>) => {
+    setIsUploading(true);
+    setErrorMsg("");
+    try {
+      const count = await invoke<number>("import_employees_to_db", {
+        filePath,
+        ministry,
+        directorate,
+        year,
+        nameColumn,
+        columnMapping: Object.keys(mapping).length > 0 ? mapping : null,
+      });
+      setInsertedCount(count);
+      setUploadSuccess(true);
+      setFilePath("");
+      setExcelHeaders([]);
+      setNameColumn("");
+    } catch (err: any) {
+      console.error(err);
+      setErrorMsg(typeof err === "string" ? err : "حدث خطأ أثناء رفع بيانات الموظفين.");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleAlignmentConfirm = (mapping: Record<string, string>) => {
+    setAlignmentData(null);
+    doEmployeeImport(mapping);
+  };
+
+  const handleAlignmentCancel = () => {
+    setAlignmentData(null);
+  };
+
+  const isFormValid = fileType === "statistics"
+    ? filePath && ministry && directorate && year
+    : filePath && ministry && directorate && year && nameColumn;
 
   // Filtered metrics via useMemo for optimal performance
   const filteredMetrics = useMemo(() => {
@@ -185,6 +279,7 @@ export default function DataCenter({
       { id: "upload", label: "رفع ومزامنة البيانات", icon: UploadCloud, visible: isUploadUnlocked },
       { id: "analytics", label: "لوحة التحليلات الذكية", icon: BarChart3, visible: isAnalyticsUnlocked },
       { id: "manage", label: "إدارة قاعدة البيانات", icon: HardDrive, visible: isDeleteUnlocked },
+      { id: "employees", label: "إدارة بيانات الموظفين", icon: UserCheck, visible: isUploadUnlocked },
     ].filter(t => t.visible);
   }, [isUploadUnlocked, isAnalyticsUnlocked, isDeleteUnlocked]);
 
@@ -334,6 +429,67 @@ export default function DataCenter({
                     ))}
                   </select>
                 </div>
+
+                {/* File Type Selector */}
+                <div>
+                  <label className="mb-1.5 flex items-center gap-1.5 text-sm font-semibold text-slate-700">
+                    <Database className="h-4 w-4 text-slate-400" />
+                    وجهة البيانات
+                  </label>
+                  <div className="flex w-full rounded-lg bg-slate-100 p-1">
+                    <button
+                      type="button"
+                      onClick={() => { setFileType("statistics"); setNameColumn(""); setExcelHeaders([]); }}
+                      className={`flex flex-1 items-center justify-center gap-1.5 rounded-md py-2 text-xs font-bold transition-all ${
+                        fileType === "statistics"
+                          ? "bg-white text-indigo-700 shadow-sm"
+                          : "text-slate-500 hover:text-slate-700"
+                      }`}
+                    >
+                      <BarChart3 className="h-3.5 w-3.5" />
+                      قاعدة الأعداد
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setFileType("employees"); setNameColumn(""); setExcelHeaders([]); }}
+                      className={`flex flex-1 items-center justify-center gap-1.5 rounded-md py-2 text-xs font-bold transition-all ${
+                        fileType === "employees"
+                          ? "bg-white text-emerald-700 shadow-sm"
+                          : "text-slate-500 hover:text-slate-700"
+                      }`}
+                    >
+                      <Users className="h-3.5 w-3.5" />
+                      قاعدة الموظفين
+                    </button>
+                  </div>
+                </div>
+
+                {/* Name Column Selector (only for employees) */}
+                {fileType === "employees" && excelHeaders.length > 0 && (
+                  <div>
+                    <label className="mb-1.5 flex items-center gap-1.5 text-sm font-semibold text-emerald-700">
+                      <UserCheck className="h-4 w-4 text-emerald-500" />
+                      اختر عمود الاسم
+                    </label>
+                    <select
+                      value={nameColumn}
+                      onChange={(e) => setNameColumn(e.target.value)}
+                      className="w-full rounded-lg border border-emerald-200 bg-emerald-50/50 px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                    >
+                      <option value="">— حدد عمود الاسم من الإكسل —</option>
+                      {excelHeaders.map((h) => (
+                        <option key={h} value={h}>{h}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {fileType === "employees" && filePath && isLoadingHeaders && (
+                  <div className="flex items-center gap-2 text-xs text-slate-500">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    جاري قراءة عناوين الإكسل...
+                  </div>
+                )}
               </div>
 
               {/* File Upload Section */}
@@ -379,13 +535,22 @@ export default function DataCenter({
                     ) : (
                       <>
                         <Database className="h-5 w-5" />
-                        بدء رفع ومزامنة البيانات للتشكيل
+                        {fileType === "statistics" ? "بدء رفع ومزامنة البيانات للتشكيل" : "رفع بيانات الموظفين"}
                       </>
                     )}
                   </button>
                 </div>
               </div>
             </div>
+
+            {/* Column Alignment Modal */}
+            {alignmentData && (
+              <ColumnAlignmentModal
+                alignments={alignmentData}
+                onConfirm={handleAlignmentConfirm}
+                onCancel={handleAlignmentCancel}
+              />
+            )}
           </div>
         )}
 
@@ -397,6 +562,11 @@ export default function DataCenter({
         {activeTab === "manage" && isDeleteUnlocked && (
           <div className="flex flex-1 flex-col bg-slate-50/30">
             <DatabaseManager isDeleteUnlocked={isDeleteUnlocked} />
+          </div>
+        )}
+        {activeTab === "employees" && isUploadUnlocked && (
+          <div className="flex flex-1 flex-col bg-slate-50/30">
+            <EmployeeManager isDeleteUnlocked={isDeleteUnlocked} />
           </div>
         )}
       </div>

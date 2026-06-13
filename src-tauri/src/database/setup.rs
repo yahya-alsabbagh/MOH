@@ -66,6 +66,39 @@ pub fn initialize_db() -> Result<(), String> {
 
     seed_hierarchy_lookup(&mut conn)?;
 
+    // ═══════════════════════════════════════════════════════════════
+    // جدول الموظفين المركزي (Centralized Employee Master Pool)
+    // ═══════════════════════════════════════════════════════════════
+    conn.execute(
+        "CREATE SEQUENCE IF NOT EXISTS seq_employees_master_id;",
+        [],
+    ).map_err(|e| e.to_string())?;
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS employees_master (
+            id BIGINT PRIMARY KEY DEFAULT nextval('seq_employees_master_id'),
+            ministry VARCHAR NOT NULL,
+            directorate VARCHAR NOT NULL,
+            approval_year INTEGER NOT NULL,
+            row_number INTEGER,
+            original_name VARCHAR NOT NULL,
+            normalized_name VARCHAR NOT NULL,
+            audit_status VARCHAR DEFAULT 'Valid',
+            data_columns VARCHAR,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )",
+        [],
+    ).map_err(|e| e.to_string())?;
+
+    // سجل أسماء الأعمدة المعروفة (للـ Fuzzy Header Alignment)
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS employee_column_registry (
+            column_name VARCHAR PRIMARY KEY,
+            first_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )",
+        [],
+    ).map_err(|e| e.to_string())?;
+
     Ok(())
 }
 
