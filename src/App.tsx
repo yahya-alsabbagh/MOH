@@ -6,8 +6,23 @@ import { Minus, Maximize, X, ShieldCheck, AlertCircle, Database } from "lucide-r
 
 import BackdoorModal from "./components/BackdoorModal";
 import Home from "./views/Home";
-import DataCenter from "./views/DataCenter";
 import { useLicense } from "./hooks/useLicense";
+import React, { Suspense } from "react";
+
+// Conditionally import DataCenter based on edition
+const DataCenter = import.meta.env.VITE_EDITION === 'processing' 
+  ? () => (
+      <div className="flex h-full items-center justify-center p-8">
+        <div className="text-center rounded-xl bg-slate-100 border border-slate-300 p-8 shadow-sm">
+          <Database className="h-12 w-12 text-slate-400 mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-slate-800 mb-2">هذه النسخة مخصصة للمعالجة فقط</h2>
+          <p className="text-sm text-slate-600 max-w-md mx-auto">
+            وفقاً لسياسة فصل الصلاحيات والبيئات، مركز إدارة البيانات والتحليلات غير متوفر في هذه النسخة من التطبيق.
+          </p>
+        </div>
+      </div>
+    )
+  : React.lazy(() => import("./views/DataCenter"));
 
 const appWindow = getCurrentWindow();
 
@@ -185,7 +200,11 @@ export default function App() {
       <main className={`flex-1 overflow-y-auto p-5 print:overflow-visible print:h-auto ${location.pathname !== "/data-center" ? "pb-20" : ""}`}>
         <Routes>
           <Route path="/" element={<Home />} />
-          <Route path="/data-center" element={<DataCenter isDeleteUnlocked={isDeleteUnlocked} isUploadUnlocked={isUploadUnlocked} isAnalyticsUnlocked={isAnalyticsUnlocked} />} />
+          <Route path="/data-center" element={
+            <Suspense fallback={<div className="flex h-full items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div></div>}>
+              <DataCenter isDeleteUnlocked={isDeleteUnlocked} isUploadUnlocked={isUploadUnlocked} isAnalyticsUnlocked={isAnalyticsUnlocked} />
+            </Suspense>
+          } />
         </Routes>
       </main>
 

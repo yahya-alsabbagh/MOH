@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "tauri": "tauri"
+    "build:processing": "tsc -b && vite build --mode processing",
+    "tauri": "tauri",
+    "tauri:build:processing": "npm run build:processing && tauri build"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.0.0",
