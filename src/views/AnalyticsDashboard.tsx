@@ -74,7 +74,7 @@ export default function AnalyticsDashboard() {
   const [searchQuery, setSearchQuery] = useState<string>("");
   
   const [page, setPage] = useState(0);
-  const [pageSize] = useState(9999999);
+  const [pageSize] = useState(100);
   
   const [data, setData] = useState<AnalyticsResponse | null>(null);
   const [allGridData, setAllGridData] = useState<DepartmentMetric[]>([]);
@@ -570,11 +570,31 @@ export default function AnalyticsDashboard() {
               </table>
             </div>
             
-            {/* Footer / Total Count Only (No Pagination) */}
-            <div className="flex items-center justify-start border-t border-slate-200 bg-slate-50 px-4 py-3 shrink-0 print:hidden">
+            {/* Footer with Pagination */}
+            <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50 px-4 py-3 shrink-0 print:hidden">
               <span className="text-sm text-slate-500">
-                إجمالي السجلات المعروضة: <span className="font-bold text-slate-700">{data.total_records.toLocaleString()}</span>
+                إجمالي السجلات: <span className="font-bold text-slate-700">{data.total_records.toLocaleString()}</span>
               </span>
+              
+              {totalPages > 1 && (
+                <div className="flex items-center gap-2">
+                  <button
+                    disabled={page === 0}
+                    onClick={() => setPage(page - 1)}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 disabled:opacity-40"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                  <span className="text-sm font-semibold text-slate-600">{page + 1} / {totalPages}</span>
+                  <button
+                    disabled={page >= totalPages - 1}
+                    onClick={() => setPage(page + 1)}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 disabled:opacity-40"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </>

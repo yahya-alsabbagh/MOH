@@ -2,9 +2,11 @@ cmd /c "npm run tauri dev"
 
 taskkill /F /IM cargo.exe
  
-
+#عام
 MOH::MASTER::BACKDOOR::2026::STRONG
+#تغيير وقت
 MOH::MASTER77::BACKDOOR::2026::STRONG
+#صلاحية تعديل قاعدة بيانات الموظفين
 MOH::MASTER777::BACKDOOR2018::2026::STRONG_0
 
 

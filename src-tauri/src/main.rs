@@ -63,7 +63,8 @@ fn main() {
             commands::fetch_employee_columns,
             commands::delete_employee_dataset,
             commands::export_employees_to_excel,
-            commands::search_employees_globally
+            commands::search_employees_globally,
+            commands::export_single_employee_to_excel
         ])
         .run(tauri::generate_context!())
         .expect("failed to run tauri application");

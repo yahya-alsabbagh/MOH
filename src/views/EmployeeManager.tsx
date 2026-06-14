@@ -23,6 +23,7 @@ import {
   Copy,
   Globe,
 } from "lucide-react";
+import EmployeeDetailsModal, { SelectedEmployeeData } from "../components/EmployeeDetailsModal";
 
 // ═══════════════════════════════════════════════════════════════
 // Types
@@ -92,6 +93,9 @@ export default function EmployeeManager({
   const [globalSearchTerm, setGlobalSearchTerm] = useState("");
   const [globalResults, setGlobalResults] = useState<GlobalSearchResult[] | null>(null);
   const [isGlobalSearching, setIsGlobalSearching] = useState(false);
+
+  // ── Employee Modal State ─────────────────────────────────────
+  const [selectedEmployeeData, setSelectedEmployeeData] = useState<SelectedEmployeeData | null>(null);
 
   // ── Details State ───────────────────────────────────────────
   const [selectedDataset, setSelectedDataset] =
@@ -461,7 +465,16 @@ export default function EmployeeManager({
                   return (
                     <tr
                       key={rec.id}
-                      className={`transition-colors ${isDuplicate ? "bg-amber-50/60 hover:bg-amber-50" : "hover:bg-slate-50/80"}`}
+                      className={`transition-colors cursor-pointer ${isDuplicate ? "bg-amber-50/60 hover:bg-amber-50" : "hover:bg-slate-50/80"}`}
+                      onClick={() => setSelectedEmployeeData({
+                        original_name: rec.original_name,
+                        normalized_name: rec.normalized_name,
+                        ministry: selectedDataset.ministry,
+                        directorate: selectedDataset.directorate,
+                        approval_year: selectedDataset.approval_year,
+                        row_number: rec.row_number,
+                        data_columns: rec.data_columns as Record<string, unknown>
+                      })}
                     >
                       <td className="px-3 py-2 text-center text-xs font-bold text-slate-400">
                         {rec.row_number ?? "—"}
@@ -517,6 +530,14 @@ export default function EmployeeManager({
               <ChevronLeft className="h-4 w-4" />
             </button>
           </div>
+        )}
+
+        {/* Details Modal */}
+        {selectedEmployeeData && (
+          <EmployeeDetailsModal
+            employee={selectedEmployeeData}
+            onClose={() => setSelectedEmployeeData(null)}
+          />
         )}
       </div>
     );
@@ -578,7 +599,19 @@ export default function EmployeeManager({
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {result.occurrences.map((occ, i) => (
-                      <tr key={i} className={`transition-colors hover:bg-indigo-50/40 ${result.occurrences.length > 1 ? "bg-rose-50/30" : ""}`}>
+                      <tr 
+                        key={i} 
+                        className={`transition-colors cursor-pointer hover:bg-indigo-50/40 ${result.occurrences.length > 1 ? "bg-rose-50/30" : ""}`}
+                        onClick={() => setSelectedEmployeeData({
+                          original_name: occ.original_name,
+                          normalized_name: result.normalized_name,
+                          ministry: occ.ministry,
+                          directorate: occ.directorate,
+                          approval_year: occ.approval_year,
+                          row_number: occ.row_number,
+                          data_columns: occ.data_columns as Record<string, unknown>
+                        })}
+                      >
                         <td className="px-3 py-2 text-slate-700 font-semibold">{occ.ministry}</td>
                         <td className="px-3 py-2 text-slate-600">{occ.directorate}</td>
                         <td className="px-3 py-2 text-center font-bold text-slate-700">{occ.approval_year}</td>
@@ -591,6 +624,14 @@ export default function EmployeeManager({
               </div>
             ))}
           </div>
+        )}
+
+        {/* Details Modal */}
+        {selectedEmployeeData && (
+          <EmployeeDetailsModal
+            employee={selectedEmployeeData}
+            onClose={() => setSelectedEmployeeData(null)}
+          />
         )}
       </div>
     );
@@ -730,6 +771,14 @@ export default function EmployeeManager({
           </tbody>
         </table>
       </div>
+
+      {/* Details Modal */}
+      {selectedEmployeeData && (
+        <EmployeeDetailsModal
+          employee={selectedEmployeeData}
+          onClose={() => setSelectedEmployeeData(null)}
+        />
+      )}
     </div>
   );
 }

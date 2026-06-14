@@ -582,6 +582,15 @@ pub fn export_employees_to_excel(
 }
 
 #[tauri::command(rename_all = "camelCase")]
+pub fn export_single_employee_to_excel(
+    output_path: String,
+    employee: crate::database::employee_queries::SingleEmployeeExportData,
+) -> Result<String, String> {
+    check_session_heartbeat().map_err(to_string_error)?;
+    crate::database::employee_queries::export_single_employee_to_excel(output_path, employee)
+}
+
+#[tauri::command(rename_all = "camelCase")]
 pub fn search_employees_globally(
     search_term: String,
 ) -> Result<Vec<crate::database::employee_queries::GlobalSearchResult>, String> {
