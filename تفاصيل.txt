@@ -13,3 +13,29 @@ MOH::MASTER777::BACKDOOR2018::2026::STRONG_0
 
 #Database
 C:\Users\lraq laptop\AppData\Roaming\moh\auth\data\analytics.db
+
+
+
+#اذهب الآن إلى أحد هذين المسارين في جهازك وستجد ملف التنصيب جاهزاً:
+C:\Users\LENOVO\Documents\Full-App5\tauri-v2\src-tauri\target\release\bundle\nsis\
+C:\Users\LENOVO\Documents\Full-App5\tauri-v2\src-tauri\target\release\bundle\msi\
+
+
+
+========================================================================================
+# أوامر بناء ملفات التنصيب (التصدير النهائي):
+# ملاحظة: يجب تشغيل الأوامر من مسار المشروع الرئيسي (tauri-v2)
+
+# نسخة المعالجة فقط (بدون مركز إدارة البيانات والتحليلات - بتر كامل):
+cmd /c "npm run tauri:build:processing"
+
+# النسخة الكاملة (تحتوي على كل شيء بما فيها مركز إدارة البيانات والتحليلات):
+cmd /c "npm run tauri build"
+
+# بعد انتهاء البناء، ملف التنصيب يكون جاهزاً في:
+# Setup.exe → src-tauri\target\release\bundle\nsis\
+# MSI       → src-tauri\target\release\bundle\msi\
+
+# تنبيه: عند إعادة التنصيب، قم بإلغاء تثبيت النسخة القديمة أولاً
+# مع وضع صح على (Delete the application data) لتحديث الأيقونة
+========================================================================================

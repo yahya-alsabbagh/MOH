@@ -1,4 +1,6 @@
-﻿وثيقة ترخيص الاستخدام النهائي (EULA)
+import fs from 'fs';
+
+const text = `وثيقة ترخيص الاستخدام النهائي (EULA)
 نظام التدقيق والمعالجة الذكي
 
 1. حقوق الاستخدام
@@ -18,4 +20,12 @@
 
 ---
 جميع الحقوق الهندسية والبرمجية محفوظة.
-المبرمج يحيى حافظ عبد الأمير الصباغ © 2026
+المبرمج يحيى حافظ عبد الأمير الصباغ © 2026`;
+
+// Create UTF-8 BOM buffer
+const bom = Buffer.from([0xEF, 0xBB, 0xBF]);
+const textBuffer = Buffer.from(text, 'utf8');
+const finalBuffer = Buffer.concat([bom, textBuffer]);
+
+fs.writeFileSync('src-tauri/license.txt', finalBuffer);
+console.log('License.txt created with BOM');

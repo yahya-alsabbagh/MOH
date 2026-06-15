@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "build:processing": "tsc -b && vite build --mode processing",
     "tauri": "tauri",
-    "tauri:build:processing": "npm run build:processing && tauri build"
+    "tauri:build:processing": "tauri build --config src-tauri/tauri.processing.conf.json"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.0.0",

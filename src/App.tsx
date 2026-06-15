@@ -197,14 +197,16 @@ export default function App() {
       </header>
 
       {/* ── Page Content ── */}
-      <main className={`flex-1 overflow-y-auto p-5 print:overflow-visible print:h-auto ${location.pathname !== "/data-center" ? "pb-20" : ""}`}>
+      <main className={`flex-1 overflow-y-auto p-5 print:overflow-visible print:h-auto ${import.meta.env.VITE_EDITION !== 'processing' && location.pathname === "/data-center" ? "" : "pb-20"}`}>
         <Routes>
           <Route path="/" element={<Home />} />
+          {import.meta.env.VITE_EDITION !== 'processing' && (
           <Route path="/data-center" element={
             <Suspense fallback={<div className="flex h-full items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div></div>}>
               <DataCenter isDeleteUnlocked={isDeleteUnlocked} isUploadUnlocked={isUploadUnlocked} isAnalyticsUnlocked={isAnalyticsUnlocked} />
             </Suspense>
           } />
+          )}
         </Routes>
       </main>
 
@@ -213,8 +215,8 @@ export default function App() {
         <p className="text-xs font-medium text-slate-400 opacity-70">© Yahya Hafedh ALsabbagh 2026</p>
       </div>
 
-      {/* Data Center Floating Button */}
-      {isAdminUnlocked && location.pathname !== "/data-center" && (
+      {/* Data Center Floating Button - hidden in processing edition */}
+      {import.meta.env.VITE_EDITION !== 'processing' && isAdminUnlocked && location.pathname !== "/data-center" && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
           <button
             onClick={() => navigate("/data-center")}
