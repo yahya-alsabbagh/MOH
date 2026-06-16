@@ -5,6 +5,7 @@ use std::process;
 use lazy_static::lazy_static;
 
 use serde::Serialize;
+use tauri::Emitter;
 
 use crate::core::{duplicate, validator, aggregator, fuzzy};
 use crate::security::license::{self, LicenseData, LicenseStatus, SecurityError};
@@ -254,7 +255,8 @@ pub fn run_duplicate_check(file_path: String, column_name: String) -> Result<Str
 }
 
 #[tauri::command(rename_all = "camelCase")]
-pub fn run_title_validation(
+pub async fn run_title_validation(
+    app: tauri::AppHandle,
     work_file: String,
     title_col: String,
     grade_col: String,
@@ -263,8 +265,16 @@ pub fn run_title_validation(
     let _license_data = match license::verify_and_touch_license().map_err(to_string_error)? {
         LicenseStatus::Valid(data) => data,
     };
-    validator::validate_titles_and_grades_file(work_file, &title_col, &grade_col)
-        .map_err(|e| e.to_string())
+
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        validator::validate_titles_and_grades_file(work_file, &title_col, &grade_col, |progress| {
+            let _ = app.emit("validation-progress", &progress);
+        })
+    })
+    .await
+    .map_err(|e| format!("فشل تشغيل التدقيق: {}", e))?;
+
+    result.map_err(|e| e.to_string())
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -459,7 +469,8 @@ pub async fn export_dataset_to_excel(output_path: String, ministry: String, dire
 }
 
 #[tauri::command(rename_all = "camelCase")]
-pub fn run_smart_duplicate_scan(
+pub async fn run_smart_duplicate_scan(
+    app: tauri::AppHandle,
     file_path: String,
     column_name: String,
     threshold: Option<f64>,
@@ -472,7 +483,16 @@ pub fn run_smart_duplicate_scan(
     // العتبة الافتراضية 80% إذا لم يُحدد المستخدم قيمة
     let thr = threshold.unwrap_or(0.80).clamp(0.50, 0.99);
 
-    fuzzy::run_full_fuzzy_scan(file_path, &column_name, thr)
+    // تشغيل الفحص على thread pool لمنع علق الواجهة
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        fuzzy::run_full_fuzzy_scan(file_path, &column_name, thr, |progress| {
+            let _ = app.emit("scan-progress", &progress);
+        })
+    })
+    .await
+    .map_err(|e| format!("فشل تشغيل الفحص: {}", e))?;
+
+    result
 }
 
 #[tauri::command(rename_all = "camelCase")]

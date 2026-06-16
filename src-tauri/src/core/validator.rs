@@ -87,6 +87,13 @@ pub struct ValidationResult {
     pub fully_matched_rows: usize,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ValidationProgress {
+    pub phase: String,
+    pub processed: usize,
+    pub total: usize,
+}
+
 struct ValidationRow {
     original_row: Vec<String>,
     employee: Employee,
@@ -147,11 +154,19 @@ pub fn validate_titles_and_grades(
     output_file_path: impl AsRef<Path>,
     title_col: &str,
     grade_col: &str,
+    progress_fn: &(dyn Fn(ValidationProgress) + Sync),
 ) -> Result<ValidationResult, ValidatorError> {
+    progress_fn(ValidationProgress {
+        phase: "reading".to_string(),
+        processed: 0,
+        total: 0,
+    });
+
     let file_name = work_file_path.as_ref().file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
     let is_military = file_name.contains("عسكري");
 
     let (work_headers, work_rows) = read_sheet_as_strings(work_file_path.as_ref())?;
+    let total_rows = work_rows.len();
 
     let title_idx = work_headers
         .iter()
@@ -177,7 +192,15 @@ pub fn validate_titles_and_grades(
     let mut grade_mismatches = 0usize;
     let mut fully_matched_rows = 0usize;
 
-    for row in &work_rows {
+    for (idx, row) in work_rows.iter().enumerate() {
+        if idx % 100 == 0 || idx == total_rows - 1 {
+            progress_fn(ValidationProgress {
+                phase: "validating".to_string(),
+                processed: idx + 1,
+                total: total_rows,
+            });
+        }
+
         let raw_title = row.get(title_idx).cloned().unwrap_or_default();
         let raw_grade = row.get(grade_idx).cloned().unwrap_or_default();
 
@@ -287,6 +310,14 @@ pub fn validate_titles_and_grades(
     }
 
     for (idx, row) in validated_rows.iter().enumerate() {
+        if idx % 100 == 0 || idx == total_rows - 1 {
+            progress_fn(ValidationProgress {
+                phase: "writing".to_string(),
+                processed: idx + 1,
+                total: total_rows,
+            });
+        }
+
         let excel_row = (idx + 1) as u32;
         
         for (out_col_idx, &orig_idx) in orig_col_mapping.iter().enumerate() {
@@ -313,6 +344,12 @@ pub fn validate_titles_and_grades(
 
     workbook.save(output_file_path.as_ref())?;
 
+    progress_fn(ValidationProgress {
+        phase: "done".to_string(),
+        processed: total_rows,
+        total: total_rows,
+    });
+
     Ok(ValidationResult {
         output_path: output_file_path.as_ref().to_string_lossy().to_string(),
         total_rows: validated_rows.len(),
@@ -326,6 +363,7 @@ pub fn validate_titles_and_grades_file(
     work_file_path: impl AsRef<Path>,
     title_col: &str,
     grade_col: &str,
+    progress_fn: impl Fn(ValidationProgress) + Send + Sync,
 ) -> Result<String, ValidatorError> {
     let input = work_file_path.as_ref();
     let date_str = Local::now().format("%d-%m-%Y").to_string();
@@ -336,6 +374,7 @@ pub fn validate_titles_and_grades_file(
         &output,
         title_col,
         grade_col,
+        &|p| progress_fn(p),
     )?;
     Ok(result.output_path)
 }

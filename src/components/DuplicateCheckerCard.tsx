@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import {
   ScanSearch,
   ChevronDown,
@@ -50,6 +51,21 @@ interface SmartScanResult {
   scan_duration_ms: number;
 }
 
+// ── Progress Types ────────────────────────────────────────
+interface ScanProgress {
+  phase: string;
+  processed: number;
+  total: number;
+  found_so_far: number;
+}
+
+const PHASE_LABELS: Record<string, string> = {
+  reading: "قراءة الملف...",
+  exact: "كشف التطابقات التامة...",
+  fuzzy: "الفحص الذكي للتشابه...",
+  done: "اكتمل الفحص!",
+};
+
 // ═══════════════════════════════════════════════════════════
 // Main Component
 // ═══════════════════════════════════════════════════════════
@@ -62,10 +78,28 @@ export default function DuplicateCheckerCard({ filePath, headers }: Props) {
   const [smartResult, setSmartResult] = useState<SmartScanResult | null>(null);
   const [showConflictHub, setShowConflictHub] = useState(false);
 
+  // Progress tracking
+  const [progress, setProgress] = useState<ScanProgress | null>(null);
+
   useEffect(() => {
     setResult({ kind: "idle" });
     setSmartResult(null);
   }, [filePath]);
+
+  // Listen for scan-progress events
+  useEffect(() => {
+    let unlisten: (() => void) | null = null;
+
+    listen<ScanProgress>("scan-progress", (event) => {
+      setProgress(event.payload);
+    }).then((fn) => {
+      unlisten = fn;
+    });
+
+    return () => {
+      if (unlisten) unlisten();
+    };
+  }, []);
 
   const isDisabled = !filePath;
   const isScanning = isSmartScanning;
@@ -78,6 +112,7 @@ export default function DuplicateCheckerCard({ filePath, headers }: Props) {
     }
     setIsSmartScanning(true);
     setResult({ kind: "idle" });
+    setProgress(null);
     try {
       const res = await invoke<SmartScanResult>("run_smart_duplicate_scan", {
         filePath, columnName, threshold: 0.90,
@@ -88,8 +123,14 @@ export default function DuplicateCheckerCard({ filePath, headers }: Props) {
       setResult({ kind: "error", message: typeof err === "string" ? err : "تعذر إتمام الفحص الذكي." });
     } finally {
       setIsSmartScanning(false);
+      setProgress(null);
     }
   };
+
+  // Calculate progress percentage
+  const progressPct = progress && progress.total > 0
+    ? Math.min(Math.round((progress.processed / progress.total) * 100), 100)
+    : 0;
 
   return (
     <>
@@ -100,18 +141,50 @@ export default function DuplicateCheckerCard({ filePath, headers }: Props) {
             : "border-slate-200 hover:border-navy-200 hover:shadow-card-hover"
           }`}
       >
-        {/* Loading Overlay */}
+        {/* Loading Overlay with Progress */}
         {isScanning && (
           <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white/90 backdrop-blur-[2px]">
             <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full shadow-inner bg-navy-50">
               <Loader2 className="h-6 w-6 animate-spin text-navy-600" />
             </div>
             <p className="text-sm font-bold text-slate-800">
-              جاري الفحص الذكي...
+              {progress ? (PHASE_LABELS[progress.phase] || "جاري الفحص...") : "جاري الفحص الذكي..."}
             </p>
-            <p className="mt-1 text-xs font-medium text-slate-500">
-              تحليل التشابه على جميع أنوية المعالج
-            </p>
+
+            {/* Progress Bar */}
+            {progress && progress.phase === "fuzzy" && progress.total > 0 && (
+              <div className="mt-3 w-4/5 max-w-xs">
+                <div className="mb-1.5 flex items-center justify-between text-xs text-slate-500">
+                  <span>{progressPct}%</span>
+                  <span>{progress.found_so_far > 0 ? `${progress.found_so_far} تطابق` : ""}</span>
+                </div>
+                <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-l from-violet-500 to-indigo-600 transition-all duration-300 ease-out"
+                    style={{ width: `${progressPct}%` }}
+                  />
+                </div>
+                <p className="mt-1.5 text-center text-[10px] text-slate-400">
+                  مجموعة {progress.processed} من {progress.total}
+                </p>
+              </div>
+            )}
+
+            {progress && progress.phase === "reading" && (
+              <p className="mt-1 text-xs font-medium text-slate-500">
+                قراءة وتنظيف البيانات...
+              </p>
+            )}
+            {progress && progress.phase === "exact" && (
+              <p className="mt-1 text-xs font-medium text-slate-500">
+                فحص {progress.total.toLocaleString()} اسم للتطابقات التامة
+              </p>
+            )}
+            {!progress && (
+              <p className="mt-1 text-xs font-medium text-slate-500">
+                تحليل التشابه على جميع أنوية المعالج
+              </p>
+            )}
           </div>
         )}
 

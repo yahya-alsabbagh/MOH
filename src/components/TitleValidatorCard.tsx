@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import {
   BadgeCheck,
   CheckCircle,
@@ -18,15 +19,45 @@ type ResultState =
   | { kind: "success"; outputPath: string }
   | { kind: "error"; message: string };
 
+// ── Progress Types ────────────────────────────────────────
+interface ValidationProgress {
+  phase: string;
+  processed: number;
+  total: number;
+}
+
+const PHASE_LABELS: Record<string, string> = {
+  reading: "قراءة الملف...",
+  validating: "جاري التدقيق...",
+  writing: "إنشاء الإكسل النهائي...",
+  done: "اكتمل التدقيق!",
+};
+
 export default function TitleValidatorCard({ workFilePath, headers }: Props) {
   const [titleCol, setTitleCol] = useState<string>("");
   const [gradeCol, setGradeCol] = useState<string>("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [result, setResult] = useState<ResultState>({ kind: "idle" });
+  const [progress, setProgress] = useState<ValidationProgress | null>(null);
 
   useEffect(() => {
     setResult({ kind: "idle" });
   }, [workFilePath]);
+
+  // Listen for validation-progress events
+  useEffect(() => {
+    let unlisten: (() => void) | null = null;
+
+    listen<ValidationProgress>("validation-progress", (event) => {
+      setProgress(event.payload);
+    }).then((fn) => {
+      unlisten = fn;
+    });
+
+    return () => {
+      if (unlisten) unlisten();
+    };
+  }, []);
 
   const isDisabled = !workFilePath;
 
@@ -43,6 +74,7 @@ export default function TitleValidatorCard({ workFilePath, headers }: Props) {
       return;
     }
     setIsProcessing(true);
+    setProgress(null);
     try {
       const outputPath = await invoke<string>("run_title_validation", {
         workFile: workFilePath,
@@ -58,8 +90,14 @@ export default function TitleValidatorCard({ workFilePath, headers }: Props) {
       });
     } finally {
       setIsProcessing(false);
+      setProgress(null);
     }
   };
+
+  // Calculate progress percentage
+  const progressPct = progress && progress.total > 0
+    ? Math.min(Math.round((progress.processed / progress.total) * 100), 100)
+    : 0;
 
   return (
     <div
@@ -69,14 +107,39 @@ export default function TitleValidatorCard({ workFilePath, headers }: Props) {
           : "border-slate-200 hover:border-indigo-200 hover:shadow-card-hover"
         }`}
     >
-      {/* Loading Overlay */}
+      {/* Loading Overlay with Progress */}
       {isProcessing && (
         <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white/90 backdrop-blur-[2px]">
           <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-indigo-50 shadow-inner">
             <Loader2 className="h-6 w-6 animate-spin text-indigo-600" />
           </div>
-          <p className="text-sm font-bold text-slate-800">جاري المعالجة...</p>
-          <p className="mt-1 text-xs font-medium text-slate-500">يتم بناء الإكسل النهائي</p>
+          <p className="text-sm font-bold text-slate-800">
+            {progress ? (PHASE_LABELS[progress.phase] || "جاري المعالجة...") : "جاري المعالجة..."}
+          </p>
+
+          {/* Progress Bar */}
+          {progress && (progress.phase === "validating" || progress.phase === "writing") && progress.total > 0 && (
+            <div className="mt-3 w-4/5 max-w-xs">
+              <div className="mb-1.5 flex items-center justify-between text-xs text-slate-500">
+                <span>{progressPct}%</span>
+              </div>
+              <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200">
+                <div
+                  className="h-full rounded-full bg-gradient-to-l from-indigo-500 to-indigo-600 transition-all duration-300 ease-out"
+                  style={{ width: `${progressPct}%` }}
+                />
+              </div>
+              <p className="mt-1.5 text-center text-[10px] text-slate-400">
+                صف {progress.processed} من {progress.total}
+              </p>
+            </div>
+          )}
+
+          {progress && progress.phase === "reading" && (
+            <p className="mt-1 text-xs font-medium text-slate-500">
+              قراءة الملف وتجهيز البيانات...
+            </p>
+          )}
         </div>
       )}
 
