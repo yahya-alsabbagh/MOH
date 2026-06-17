@@ -167,33 +167,25 @@ export default function AnalyticsDashboard() {
 
   const COLORS = ['#3b82f6', '#ec4899', '#f59e0b']; // Indigo for Male, Pink for Female, Orange for Vacancies
 
-  // Dynamic chart heights based on data count
+  // Dynamic chart heights - one row per title
   const gradeChartHeight = useMemo(() => {
     if (!data) return 300;
-    const grades = data.grade_distribution.length;
-    const hasVacancies = data.kpis.total_vacant > 0;
-    const perGrade = hasVacancies ? 50 : 30;
-    return Math.max(300, grades * perGrade + 20);
+    return Math.max(300, data.grade_distribution.length * 38 + 20);
   }, [data]);
 
   const gradeChartPrintHeight = useMemo(() => {
-    if (!data) return 150;
-    const grades = data.grade_distribution.length;
-    const hasVacancies = data.kpis.total_vacant > 0;
-    const perGrade = hasVacancies ? 25 : 18;
-    return Math.max(120, Math.min(280, grades * perGrade + 15));
+    if (!data) return 120;
+    return Math.max(120, data.grade_distribution.length * 22 + 15);
   }, [data]);
 
   const parityChartHeight = useMemo(() => {
     if (!data) return 300;
-    const jobs = data.gender_parity.length;
-    return Math.max(300, jobs * 30 + 45);
+    return Math.max(300, data.gender_parity.length * 38 + 45);
   }, [data]);
 
   const parityChartPrintHeight = useMemo(() => {
-    if (!data) return 150;
-    const jobs = data.gender_parity.length;
-    return Math.max(120, Math.min(280, jobs * 18 + 25));
+    if (!data) return 120;
+    return Math.max(120, data.gender_parity.length * 22 + 25);
   }, [data]);
 
   const totalPages = data ? Math.ceil(data.total_records / pageSize) : 0;
@@ -333,7 +325,7 @@ export default function AnalyticsDashboard() {
             </div>
 
             {/* Charts Row 1: Grade Pyramid & Gender Parity */}
-            {showCharts && <div className={`grid grid-cols-1 lg:grid-cols-2 gap-6 min-h-[400px] print:min-h-0 print:gap-4 print:page-break-inside-avoid print:break-inside-avoid ${isPrintMode && searchQuery ? 'print:grid-cols-1' : 'print:grid-cols-2'}`}>
+            {showCharts && <div className={`grid grid-cols-1 lg:grid-cols-2 gap-6 print:gap-6 print:grid-cols-1`}>
               {/* Grade Pyramid */}
               <div className={`rounded-xl border border-slate-200 bg-slate-50 p-5 shadow-sm flex flex-col print:p-2 print:break-inside-avoid ${isPrintMode ? '' : 'overflow-hidden'}`}>
                 <h4 className="text-sm font-bold text-slate-700 mb-4 print:mb-1">الدرجات الوظيفية</h4>
@@ -348,17 +340,29 @@ export default function AnalyticsDashboard() {
                       <BarChart
                         data={data.grade_distribution}
                         layout="vertical"
-                        margin={{ top: 5, right: isPrintMode ? 5 : 45, left: 5, bottom: 5 }}
+                        margin={{ top: 5, right: isPrintMode ? 5 : 55, left: 5, bottom: 5 }}
+                        barCategoryGap="20%"
+                        barGap={2}
                       >
                         <CartesianGrid horizontal={false} vertical={false} />
                         <XAxis type="number" hide />
                         <YAxis type="category" dataKey="job_grade" hide />
-                        <RechartsTooltip cursor={{fill: '#f1f5f9'}} contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}} />
-                        <Bar isAnimationActive={!isPrintMode} dataKey="count" name="العدد" fill="#6366f1" radius={[0, 4, 4, 0]} maxBarSize={isPrintMode ? 10 : 18}>
-                          <LabelList dataKey="count" position={isPrintMode ? 'insideRight' : 'right'} fill="#000" fontSize={isPrintMode ? 9 : 11} fontWeight="bold" formatter={(val: any) => Number(val) > 0 ? Number(val).toLocaleString() : ''} />
+                        <RechartsTooltip
+                          cursor={{fill: '#f1f5f9'}}
+                          contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}}
+                          labelFormatter={(_, payload) => payload && payload.length > 0 ? payload[0].payload.job_grade : ''}
+                        />
+                        <Bar isAnimationActive={!isPrintMode} dataKey="count" name="مشغول" stackId="ab" fill="#64748b" radius={[0, 4, 4, 0]} maxBarSize={isPrintMode ? 10 : 16} minPointSize={isPrintMode ? 5 : 8}>
+                          {data.grade_distribution.map((entry, index) => (
+                            <Cell key={`cell-count-${index}`} fill={(entry.count || 0) > 0 ? "#64748b" : "transparent"} />
+                          ))}
+                          <LabelList dataKey="count" position="inside" fill="#fff" fontSize={9} fontWeight="bold" formatter={(val: any) => Number(val) > 0 ? Number(val).toLocaleString() : ''} />
                         </Bar>
                         {data.kpis.total_vacant > 0 && (
-                          <Bar isAnimationActive={!isPrintMode} dataKey="vacant_count" name="شواغر" fill="#f59e0b" radius={[0, 4, 4, 0]} maxBarSize={isPrintMode ? 10 : 18}>
+                          <Bar isAnimationActive={!isPrintMode} dataKey="vacant_count" name="شواغر" stackId="vac" fill="#f59e0b" radius={[0, 4, 4, 0]} maxBarSize={isPrintMode ? 10 : 16} minPointSize={isPrintMode ? 5 : 8}>
+                            {data.grade_distribution.map((entry, index) => (
+                              <Cell key={`cell-vac-${index}`} fill={(entry.vacant_count || 0) > 0 ? "#f59e0b" : "transparent"} />
+                            ))}
                             <LabelList dataKey="vacant_count" position={isPrintMode ? 'insideRight' : 'right'} fill="#000" fontSize={isPrintMode ? 9 : 11} fontWeight="bold" formatter={(val: any) => Number(val) > 0 ? Number(val).toLocaleString() : ''} />
                           </Bar>
                         )}
@@ -367,7 +371,9 @@ export default function AnalyticsDashboard() {
                   </div>
                   <div className="flex flex-col justify-around border-l-2 border-slate-300 pr-0 pl-3 shrink-0 relative z-10" style={{width: '80px'}}>
                     {data.grade_distribution.map((item, i) => (
-                      <span key={i} className="text-xs font-bold text-slate-800 text-right leading-none" dir="rtl">{item.job_grade}</span>
+                      <span key={i} className="text-xs font-bold text-slate-800 text-right leading-none" dir="rtl">
+                        {item.job_grade}
+                      </span>
                     ))}
                   </div>
                 </div>
@@ -383,35 +389,57 @@ export default function AnalyticsDashboard() {
                     {data.kpis.total_vacant > 0 && <div className="flex items-center gap-1.5"><span className="w-3 h-3 bg-amber-500 rounded-sm shrink-0"></span> شواغر</div>}
                   </div>
                 </div>
-                <div className={`flex ${isPrintMode ? '' : 'overflow-hidden'}`} dir="ltr" style={{ height: `${isPrintMode ? parityChartPrintHeight : parityChartHeight}px` }}>
-                  <div className="flex-1 overflow-hidden">
+                <div className={`flex relative ${isPrintMode ? '' : 'overflow-hidden'}`} dir="ltr" style={{ height: `${isPrintMode ? parityChartPrintHeight : parityChartHeight}px` }}>
+                  <div className="absolute inset-y-0 right-0 left-0 flex flex-col pointer-events-none z-0" style={{ padding: '5px 0' }}>
+                    {data.gender_parity.map((_, i) => (
+                      <div key={i} className={`flex-1 ${i !== data.gender_parity.length - 1 ? 'border-b border-slate-300 print:border-slate-400' : ''}`} />
+                    ))}
+                  </div>
+                  <div className="flex-1 relative z-10 overflow-hidden">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart
                         data={data.gender_parity}
                         layout="vertical"
-                        margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
+                        margin={{ top: 5, right: isPrintMode ? 5 : 55, left: 5, bottom: 5 }}
+                        barCategoryGap="20%"
+                        barGap={2}
                       >
-                        <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#e2e8f0" />
+                        <CartesianGrid horizontal={false} vertical={false} />
                         <XAxis type="number" hide />
                         <YAxis type="category" dataKey="job_title" hide />
-                        <RechartsTooltip cursor={{fill: '#f1f5f9'}} contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}} />
-                        <Bar isAnimationActive={!isPrintMode} dataKey="males" name="ذكور" stackId="a" fill="#3b82f6" radius={[0, 0, 0, 0]} maxBarSize={isPrintMode ? 10 : 18}>
+                        <RechartsTooltip
+                          cursor={{fill: '#f1f5f9'}}
+                          contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}}
+                          labelFormatter={(_, payload) => payload && payload.length > 0 ? payload[0].payload.job_title : ''}
+                        />
+                        <Bar isAnimationActive={!isPrintMode} dataKey="males" name="ذكور" stackId="ab" fill="#3b82f6" radius={[0, 0, 0, 0]} maxBarSize={isPrintMode ? 10 : 16} minPointSize={isPrintMode ? 5 : 8}>
+                          {data.gender_parity.map((entry, index) => (
+                            <Cell key={`cell-male-${index}`} fill={(entry.males || 0) > 0 ? "#3b82f6" : "transparent"} />
+                          ))}
                           <LabelList dataKey="males" position="inside" fill="#000" fontSize={9} fontWeight="bold" formatter={(val: any) => Number(val) > 0 ? Number(val).toLocaleString() : ''} />
                         </Bar>
-                        <Bar isAnimationActive={!isPrintMode} dataKey="females" name="إناث" stackId="a" fill="#ec4899" radius={data.kpis.total_vacant > 0 ? [0, 0, 0, 0] : [0, 4, 4, 0]} maxBarSize={isPrintMode ? 10 : 18}>
+                        <Bar isAnimationActive={!isPrintMode} dataKey="females" name="إناث" stackId="ab" fill="#ec4899" radius={[0, 4, 4, 0]} maxBarSize={isPrintMode ? 10 : 16} minPointSize={isPrintMode ? 5 : 8}>
+                          {data.gender_parity.map((entry, index) => (
+                            <Cell key={`cell-female-${index}`} fill={(entry.females || 0) > 0 ? "#ec4899" : "transparent"} />
+                          ))}
                           <LabelList dataKey="females" position="inside" fill="#000" fontSize={9} fontWeight="bold" formatter={(val: any) => Number(val) > 0 ? Number(val).toLocaleString() : ''} />
                         </Bar>
                         {data.kpis.total_vacant > 0 && (
-                          <Bar isAnimationActive={!isPrintMode} dataKey="vacancies" name="شواغر" stackId="a" fill="#f59e0b" radius={[0, 4, 4, 0]} maxBarSize={isPrintMode ? 10 : 18}>
-                            <LabelList dataKey="vacancies" position="inside" fill="#000" fontSize={9} fontWeight="bold" formatter={(val: any) => Number(val) > 0 ? Number(val).toLocaleString() : ''} />
+                          <Bar isAnimationActive={!isPrintMode} dataKey="vacancies" name="شواغر" stackId="vac" fill="#f59e0b" radius={[0, 4, 4, 0]} maxBarSize={isPrintMode ? 10 : 16} minPointSize={isPrintMode ? 5 : 8}>
+                            {data.gender_parity.map((entry, index) => (
+                              <Cell key={`cell-vac-${index}`} fill={(entry.vacancies || 0) > 0 ? "#f59e0b" : "transparent"} />
+                            ))}
+                            <LabelList dataKey="vacancies" position={isPrintMode ? 'insideRight' : 'right'} fill="#000" fontSize={isPrintMode ? 9 : 11} fontWeight="bold" formatter={(val: any) => Number(val) > 0 ? Number(val).toLocaleString() : ''} />
                           </Bar>
                         )}
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
-                  <div className="flex flex-col justify-around border-l-2 border-slate-300 pr-0 pl-3 shrink-0 pt-14 pb-1" style={{width: '120px'}}>
+                  <div className="flex flex-col justify-around border-l-2 border-slate-300 pr-0 pl-3 shrink-0 relative z-10" style={{width: '120px'}}>
                     {data.gender_parity.map((item, i) => (
-                      <span key={i} className="text-[10px] font-bold text-slate-800 text-right leading-none" dir="rtl">{item.job_title}</span>
+                      <span key={i} className="text-[10px] font-bold text-slate-800 text-right leading-none" dir="rtl">
+                        {item.job_title}
+                      </span>
                     ))}
                   </div>
                 </div>
@@ -485,14 +513,15 @@ export default function AnalyticsDashboard() {
               <table className="w-full text-right text-sm text-slate-600 relative">
                 <thead className="sticky top-0 bg-slate-50 text-sm font-bold uppercase text-slate-700 shadow-sm z-10">
                   <tr>
-                    <th className="px-4 py-3 border-b border-slate-200">الوزارة / الدائرة</th>
-                    <th className="px-4 py-3 border-b border-slate-200">العنوان الوظيفي</th>
-                    <th className="px-4 py-3 border-b border-slate-200 text-base">الدرجة</th>
-                    <th className="px-4 py-3 border-b border-slate-200 text-base">الرمز</th>
-                    <th className="px-4 py-3 border-b border-slate-200 text-center text-base">الذكور</th>
-                    <th className="px-4 py-3 border-b border-slate-200 text-center text-base">الإناث</th>
-                    <th className="px-4 py-3 border-b border-slate-200 text-center text-amber-600 text-base">الشواغر</th>
-                    <th className="px-4 py-3 border-b border-slate-200 text-center text-base">المجموع</th>
+                    <th className="px-4 py-3 border-b border-slate-200 print:hidden">الوزارة / الدائرة</th>
+                    <th className="px-4 py-3 border-b border-slate-200 print:hidden">العنوان الوظيفي</th>
+                    <th className="hidden print:table-cell px-4 py-3 border-b border-slate-200 text-right print:text-xs" style={{ width: '40%' }}>العنوان الوظيفي</th>
+                    <th className="px-4 py-3 border-b border-slate-200 text-base print:text-xs">الدرجة</th>
+                    <th className="px-4 py-3 border-b border-slate-200 text-base print:text-xs">الرمز</th>
+                    <th className="px-4 py-3 border-b border-slate-200 text-center text-base print:text-xs">الذكور</th>
+                    <th className="px-4 py-3 border-b border-slate-200 text-center text-base print:text-xs">الإناث</th>
+                    <th className="px-4 py-3 border-b border-slate-200 text-center text-amber-600 text-base print:text-xs">الشواغر</th>
+                    <th className="px-4 py-3 border-b border-slate-200 text-center text-base print:text-xs">المجموع</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -501,7 +530,7 @@ export default function AnalyticsDashboard() {
                     if (!displayData || displayData.length === 0) {
                       return (
                         <tr>
-                          <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
+                          <td colSpan={8} className="px-4 py-8 text-center text-slate-500">
                             لا توجد نتائج تطابق بحثك.
                           </td>
                         </tr>
@@ -528,25 +557,47 @@ export default function AnalyticsDashboard() {
                           return (
                             <React.Fragment key={`group-${gIdx}`}>
                               {group.records.map((m) => (
-                                <tr key={m.id} className="transition-colors hover:bg-slate-50">
-                                  <td className="px-4 py-2 font-semibold text-slate-800">
-                                    {m.ministry || "-"} 
-                                    <span className="block text-[10px] font-normal text-slate-400">{m.directorate || "-"}</span>
-                                  </td>
-                                  <td className="px-4 py-2 font-bold text-indigo-700 text-xs">{m.job_title || "-"}</td>
-                                  <td className="px-4 py-2"><span className="inline-flex rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-600 border border-slate-200">{m.job_grade || "-"}</span></td>
-                                  <td className="px-4 py-2 font-mono text-[10px] text-slate-500">{m.job_code || "-"}</td>
-                                  <td className="px-4 py-2 text-center font-bold text-base">{m.male_count ?? "-"}</td>
-                                  <td className="px-4 py-2 text-center font-bold text-base">{m.female_count ?? "-"}</td>
-                                  <td className="px-4 py-2 text-center font-black text-amber-600 text-base">{m.vacant_count ?? "-"}</td>
-                                  <td className="px-4 py-2 text-center font-black text-emerald-600 text-base">{(m.male_count ?? 0) + (m.female_count ?? 0)}</td>
-                                </tr>
+                                <React.Fragment key={m.id}>
+                                  {/* Print Only: Ministry/Directorate as a separate full-width row */}
+                                  <tr className="hidden print:table-row">
+                                    <td colSpan={7} className="px-4 pt-3 pb-1 text-right border-t border-slate-100">
+                                      <span className="font-bold text-slate-800 text-[13px]">{m.ministry || "-"}</span>
+                                      <span className="text-[11px] text-slate-500 font-medium mx-1">/</span>
+                                      <span className="text-[11px] text-slate-500 font-medium">{m.directorate || "-"}</span>
+                                    </td>
+                                  </tr>
+                                  {/* Data Row */}
+                                  <tr className="transition-colors hover:bg-slate-50">
+                                    {/* Normal Screen Cells */}
+                                    <td className="px-4 py-2 font-semibold text-slate-800 max-w-[150px] print:hidden">
+                                      <div className="line-clamp-2" title={m.ministry || ""}>{m.ministry || "-"}</div>
+                                      <div className="text-[10px] font-normal text-slate-400 line-clamp-2 mt-0.5" title={m.directorate || ""}>{m.directorate || "-"}</div>
+                                    </td>
+                                    <td className="px-4 py-2 font-bold text-indigo-700 text-xs max-w-[120px] print:hidden">
+                                      <div className="line-clamp-2" title={m.job_title || ""}>{m.job_title || "-"}</div>
+                                    </td>
+                                    {/* Print Only: Title Cell (first column, wide) */}
+                                    <td className="hidden print:table-cell px-4 py-2 font-bold text-indigo-700 text-xs">{m.job_title || "-"}</td>
+                                    {/* Screen: Grade & Code */}
+                                    <td className="px-4 py-2 print:hidden"><span className="inline-flex rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-600 border border-slate-200">{m.job_grade || "-"}</span></td>
+                                    <td className="px-4 py-2 font-mono text-[10px] text-slate-500 print:hidden">{m.job_code || "-"}</td>
+                                    {/* Print: Grade & Code */}
+                                    <td className="hidden print:table-cell px-4 py-2"><span className="inline-flex rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-600 border border-slate-200">{m.job_grade || "-"}</span></td>
+                                    <td className="hidden print:table-cell px-4 py-2 font-mono text-[10px] text-slate-500">{m.job_code || "-"}</td>
+                                    {/* Shared: Numeric cells */}
+                                    <td className="px-4 py-2 text-center font-bold text-base">{m.male_count ?? "-"}</td>
+                                    <td className="px-4 py-2 text-center font-bold text-base">{m.female_count ?? "-"}</td>
+                                    <td className="px-4 py-2 text-center font-black text-amber-600 text-base">{m.vacant_count ?? "-"}</td>
+                                    <td className="px-4 py-2 text-center font-black text-emerald-600 text-base">{(m.male_count ?? 0) + (m.female_count ?? 0)}</td>
+                                  </tr>
+                                </React.Fragment>
                               ))}
                               {/* Subtotal Row for this Grade */}
                               <tr className="bg-amber-50/50">
-                                <td colSpan={7} className="px-4 py-3 font-bold text-slate-800 text-left border-y border-amber-100 text-base">
+                                <td colSpan={6} className="px-4 py-3 font-bold text-slate-800 text-right border-y border-amber-100 text-base">
                                   مجموع الدرجة ({group.grade}):
                                 </td>
+                                <td className="print:hidden border-y border-amber-100"></td>
                                 <td className="px-4 py-3 text-center font-black text-amber-600 border-y border-amber-100 text-lg">
                                   {totalGradeCount.toLocaleString()}
                                 </td>
@@ -556,9 +607,10 @@ export default function AnalyticsDashboard() {
                         })}
                         {/* Grand Total Row */}
                         <tr className="bg-slate-100">
-                          <td colSpan={7} className="px-4 py-4 font-black text-slate-800 text-left border-y border-slate-300 text-lg">
+                          <td colSpan={6} className="px-4 py-4 font-black text-slate-800 text-right border-y border-slate-300 text-lg">
                             المجموع الكلي:
                           </td>
+                          <td className="print:hidden border-y border-slate-300"></td>
                           <td className="px-4 py-4 text-center font-black text-indigo-700 border-y border-slate-300 text-2xl">
                             {data.kpis.total_count.toLocaleString()}
                           </td>
