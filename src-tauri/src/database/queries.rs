@@ -353,24 +353,30 @@ pub fn fetch_filtered_analytics(
 
     // 2. Grade Distribution (Grade Pyramid)
     let grade_dist_query = format!(
-        "SELECT job_grade, 
-            CAST(COALESCE(SUM(male_count + female_count), 0) AS BIGINT) as count,
-            CAST(COALESCE(SUM(vacant_count), 0) AS BIGINT) as vacant_count
-         FROM department_metrics WHERE {} AND job_grade IS NOT NULL AND job_grade != ''
-         GROUP BY job_grade
+        "SELECT clean_grade as job_grade, 
+            CAST(COALESCE(SUM(total_people), 0) AS BIGINT) as count,
+            CAST(COALESCE(SUM(v_count), 0) AS BIGINT) as vacant_count
+         FROM (
+             SELECT TRIM(job_grade) as clean_grade,
+                    (male_count + female_count) as total_people,
+                    vacant_count as v_count
+             FROM department_metrics 
+             WHERE {} AND job_grade IS NOT NULL AND TRIM(job_grade) != ''
+         ) sub
+         GROUP BY clean_grade
          ORDER BY CASE 
-            WHEN TRIM(REPLACE(job_grade, 'أ', 'ا')) IN ('عليا ا', 'عليا ا ') THEN 1
-            WHEN TRIM(job_grade) IN ('عليا ب', 'عليا ب ') THEN 2
-            WHEN TRIM(job_grade) IN ('1', 'الاولى', 'الأولى') THEN 3
-            WHEN TRIM(job_grade) IN ('2', 'الثانية') THEN 4
-            WHEN TRIM(job_grade) IN ('3', 'الثالثة') THEN 5
-            WHEN TRIM(job_grade) IN ('4', 'الرابعة') THEN 6
-            WHEN TRIM(job_grade) IN ('5', 'الخامسة') THEN 7
-            WHEN TRIM(job_grade) IN ('6', 'السادسة') THEN 8
-            WHEN TRIM(job_grade) IN ('7', 'السابعة') THEN 9
-            WHEN TRIM(job_grade) IN ('8', 'الثامنة') THEN 10
-            WHEN TRIM(job_grade) IN ('9', 'التاسعة') THEN 11
-            WHEN TRIM(job_grade) IN ('10', 'العاشرة') THEN 12
+            WHEN REPLACE(clean_grade, 'أ', 'ا') IN ('عليا ا', 'عليا ا ') THEN 1
+            WHEN clean_grade IN ('عليا ب', 'عليا ب ') THEN 2
+            WHEN clean_grade IN ('1', 'الاولى', 'الأولى') THEN 3
+            WHEN clean_grade IN ('2', 'الثانية') THEN 4
+            WHEN clean_grade IN ('3', 'الثالثة') THEN 5
+            WHEN clean_grade IN ('4', 'الرابعة') THEN 6
+            WHEN clean_grade IN ('5', 'الخامسة') THEN 7
+            WHEN clean_grade IN ('6', 'السادسة') THEN 8
+            WHEN clean_grade IN ('7', 'السابعة') THEN 9
+            WHEN clean_grade IN ('8', 'الثامنة') THEN 10
+            WHEN clean_grade IN ('9', 'التاسعة') THEN 11
+            WHEN clean_grade IN ('10', 'العاشرة') THEN 12
             ELSE 99 END ASC",
          where_clause
     );
@@ -395,15 +401,22 @@ pub fn fetch_filtered_analytics(
         }
     }
 
-    // 3. Gender Parity (Top 10 Job Titles)
+    // 3. Gender Parity (Top 15 Job Titles)
     let parity_query = format!(
-        "SELECT job_title, 
-            CAST(COALESCE(SUM(male_count), 0) AS BIGINT) as males,
-            CAST(COALESCE(SUM(female_count), 0) AS BIGINT) as females,
-            CAST(COALESCE(SUM(vacant_count), 0) AS BIGINT) as vacancies,
-            CAST(COALESCE(SUM(male_count + female_count), 0) AS BIGINT) as total
-         FROM department_metrics WHERE {} AND job_title IS NOT NULL AND job_title != ''
-         GROUP BY job_title
+        "SELECT clean_title as job_title, 
+            CAST(COALESCE(SUM(m_count), 0) AS BIGINT) as males,
+            CAST(COALESCE(SUM(f_count), 0) AS BIGINT) as females,
+            CAST(COALESCE(SUM(v_count), 0) AS BIGINT) as vacancies,
+            CAST(COALESCE(SUM(m_count + f_count + v_count), 0) AS BIGINT) as total
+         FROM (
+             SELECT TRIM(job_title) as clean_title,
+                    male_count as m_count,
+                    female_count as f_count,
+                    vacant_count as v_count
+             FROM department_metrics 
+             WHERE {} AND job_title IS NOT NULL AND TRIM(job_title) != ''
+         ) sub
+         GROUP BY clean_title
          ORDER BY total DESC
          LIMIT 15",
          where_clause

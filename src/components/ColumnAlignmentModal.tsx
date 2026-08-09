@@ -31,10 +31,10 @@ export default function ColumnAlignmentModal({
     }
   );
 
-  const handleToggle = (original: string) => {
+  const handleDecision = (original: string, decision: "unify" | "keep") => {
     setDecisions((prev) => ({
       ...prev,
-      [original]: prev[original] === "unify" ? "keep" : "unify",
+      [original]: decision,
     }));
   };
 
@@ -137,26 +137,30 @@ export default function ColumnAlignmentModal({
                       </span>
                     </td>
                     <td className="py-3 text-center">
-                      <button
-                        onClick={() => handleToggle(a.original)}
-                        className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
-                          isUnify
-                            ? "bg-emerald-500 text-white shadow-sm hover:bg-emerald-600"
-                            : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                        }`}
-                      >
-                        {isUnify ? (
-                          <>
-                            <Check className="h-3 w-3" />
-                            توحيد
-                          </>
-                        ) : (
-                          <>
-                            <Plus className="h-3 w-3" />
-                            إبقاء جديد
-                          </>
-                        )}
-                      </button>
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          onClick={() => handleDecision(a.original, "unify")}
+                          className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
+                            isUnify
+                              ? "bg-emerald-500 text-white shadow-sm"
+                              : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                          }`}
+                        >
+                          <Check className="h-3 w-3" />
+                          توحيد
+                        </button>
+                        <button
+                          onClick={() => handleDecision(a.original, "keep")}
+                          className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
+                            !isUnify
+                              ? "bg-blue-500 text-white shadow-sm"
+                              : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                          }`}
+                        >
+                          <Plus className="h-3 w-3" />
+                          إبقاء جديد
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );

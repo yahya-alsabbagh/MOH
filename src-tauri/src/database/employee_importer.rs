@@ -164,12 +164,8 @@ pub fn import_employees_to_db(
         // Build JSON object for all other columns, preserving data types
         let mut json_map = Map::new();
         for (col_idx, col_name) in &data_columns {
-            if let Some(cell) = row.get(*col_idx) {
-                let val = cell_to_json_value(cell);
-                if !val.is_null() {
-                    json_map.insert(col_name.clone(), val);
-                }
-            }
+            let val = row.get(*col_idx).map(cell_to_json_value).unwrap_or(Value::Null);
+            json_map.insert(col_name.clone(), val);
         }
         let json_str = Value::Object(json_map).to_string();
 

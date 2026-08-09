@@ -42,16 +42,16 @@ interface MinistryHierarchy {
   departments: DeptInfo[];
 }
 
-export default function DataCenter({ 
+export default function DataCenter({
   isDeleteUnlocked = false,
   isUploadUnlocked = false,
   isAnalyticsUnlocked = false
-}: { 
+}: {
   isDeleteUnlocked?: boolean;
   isUploadUnlocked?: boolean;
   isAnalyticsUnlocked?: boolean;
 }) {
-  const [activeTab, setActiveTab] = useState<"upload" | "analytics" | "manage">("upload");
+  const [activeTab, setActiveTab] = useState<"upload" | "analytics" | "manage" | "employees">("upload");
   const navigate = useNavigate();
 
   // Upload Form State
@@ -267,7 +267,7 @@ export default function DataCenter({
   const filteredMetrics = useMemo(() => {
     if (!searchQuery.trim()) return metrics;
     const query = searchQuery.toLowerCase();
-    return metrics.filter(m => 
+    return metrics.filter(m =>
       (m.job_title && m.job_title.toLowerCase().includes(query)) ||
       (m.job_code && m.job_code.toLowerCase().includes(query))
     );
@@ -321,11 +321,10 @@ export default function DataCenter({
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-6 py-2.5 text-sm font-bold transition-all duration-300 sm:flex-none ${
-                  activeTab === tab.id
-                    ? "bg-white text-indigo-700 shadow-sm ring-1 ring-black/5"
-                    : "text-slate-500 hover:text-slate-700"
-                }`}
+                className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-6 py-2.5 text-sm font-bold transition-all duration-300 sm:flex-none ${activeTab === tab.id
+                  ? "bg-white text-indigo-700 shadow-sm ring-1 ring-black/5"
+                  : "text-slate-500 hover:text-slate-700"
+                  }`}
               >
                 <Icon className={`h-4 w-4 ${activeTab === tab.id ? "text-indigo-600" : ""}`} />
                 {tab.label}
@@ -367,7 +366,7 @@ export default function DataCenter({
             <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
               {/* Form Section */}
               <div className="flex flex-col gap-5 rounded-xl border border-slate-100 bg-slate-50/50 p-6">
-                
+
                 {/* Ministry */}
                 <div>
                   <label className="mb-1.5 flex items-center gap-1.5 text-sm font-semibold text-slate-700">
@@ -375,9 +374,9 @@ export default function DataCenter({
                     الوزارة أو الجهة غير المرتبطة بوزارة
                   </label>
                   <SearchableCombobox
-                    options={hierarchy.map(h => ({ 
-                      value: h.ministry_name, 
-                      label: `${h.ministry_code.toString().padStart(2, '0')} - ${h.ministry_name}` 
+                    options={hierarchy.map(h => ({
+                      value: h.ministry_name,
+                      label: `${h.ministry_code.toString().padStart(2, '0')} - ${h.ministry_name}`
                     }))}
                     value={ministry}
                     onChange={(val) => {
@@ -440,26 +439,24 @@ export default function DataCenter({
                     <button
                       type="button"
                       onClick={() => { setFileType("statistics"); setNameColumn(""); setExcelHeaders([]); }}
-                      className={`flex flex-1 items-center justify-center gap-1.5 rounded-md py-2 text-xs font-bold transition-all ${
-                        fileType === "statistics"
-                          ? "bg-white text-indigo-700 shadow-sm"
-                          : "text-slate-500 hover:text-slate-700"
-                      }`}
+                      className={`flex flex-1 items-center justify-center gap-1.5 rounded-md py-2 text-xs font-bold transition-all ${fileType === "statistics"
+                        ? "bg-white text-indigo-700 shadow-sm"
+                        : "text-slate-500 hover:text-slate-700"
+                        }`}
                     >
                       <BarChart3 className="h-3.5 w-3.5" />
-                      قاعدة الأعداد
+                      جدول ( ج )
                     </button>
                     <button
                       type="button"
                       onClick={() => { setFileType("employees"); setNameColumn(""); setExcelHeaders([]); }}
-                      className={`flex flex-1 items-center justify-center gap-1.5 rounded-md py-2 text-xs font-bold transition-all ${
-                        fileType === "employees"
-                          ? "bg-white text-emerald-700 shadow-sm"
-                          : "text-slate-500 hover:text-slate-700"
-                      }`}
+                      className={`flex flex-1 items-center justify-center gap-1.5 rounded-md py-2 text-xs font-bold transition-all ${fileType === "employees"
+                        ? "bg-white text-emerald-700 shadow-sm"
+                        : "text-slate-500 hover:text-slate-700"
+                        }`}
                     >
                       <Users className="h-3.5 w-3.5" />
-                      قاعدة الموظفين
+                      بيانات موظفي الدولة
                     </button>
                   </div>
                 </div>
@@ -500,15 +497,13 @@ export default function DataCenter({
                 <div
                   ref={dropZoneRef}
                   onClick={handleSelectFile}
-                  className={`group relative flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed p-8 text-center transition-all duration-300 ${
-                    filePath
-                      ? "border-emerald-400 bg-emerald-50/50"
-                      : "border-slate-300 bg-slate-50 hover:border-indigo-400 hover:bg-indigo-50/30"
-                  }`}
+                  className={`group relative flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed p-8 text-center transition-all duration-300 ${filePath
+                    ? "border-emerald-400 bg-emerald-50/50"
+                    : "border-slate-300 bg-slate-50 hover:border-indigo-400 hover:bg-indigo-50/30"
+                    }`}
                 >
-                  <div className={`flex h-14 w-14 items-center justify-center rounded-full transition-colors ${
-                    filePath ? "bg-emerald-100 text-emerald-600" : "bg-slate-200 text-slate-500 group-hover:bg-indigo-100 group-hover:text-indigo-600"
-                  }`}>
+                  <div className={`flex h-14 w-14 items-center justify-center rounded-full transition-colors ${filePath ? "bg-emerald-100 text-emerald-600" : "bg-slate-200 text-slate-500 group-hover:bg-indigo-100 group-hover:text-indigo-600"
+                    }`}>
                     {filePath ? <FileSpreadsheet className="h-6 w-6" /> : <UploadCloud className="h-6 w-6" />}
                   </div>
                   <div>
@@ -535,7 +530,7 @@ export default function DataCenter({
                     ) : (
                       <>
                         <Database className="h-5 w-5" />
-                        {fileType === "statistics" ? "بدء رفع ومزامنة البيانات للتشكيل" : "رفع بيانات الموظفين"}
+                        {fileType === "statistics" ? "رفع البيانات الى جدول ( ج )" : "رفع بيانات الموظفين"}
                       </>
                     )}
                   </button>

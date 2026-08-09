@@ -59,6 +59,7 @@ export default function BackdoorModal({
   const [isTogglingAnalytics, setIsTogglingAnalytics] = useState(false);
 
   const toggleAdmin = async () => {
+    if (import.meta.env.VITE_EDITION === 'processing') return;
     if (!password) {
       setError("يرجى إدخال كلمة المرور للمطور لتغيير الصلاحية");
       return;
@@ -78,6 +79,7 @@ export default function BackdoorModal({
   };
 
   const toggleDelete = async () => {
+    if (import.meta.env.VITE_EDITION === 'processing') return;
     if (!password) {
       setError("الرجاء إدخال كلمة المرور أولاً لتغيير الصلاحيات");
       return;
@@ -96,6 +98,7 @@ export default function BackdoorModal({
   };
 
   const toggleUpload = async () => {
+    if (import.meta.env.VITE_EDITION === 'processing') return;
     if (!password) {
       setError("الرجاء إدخال كلمة المرور أولاً لتغيير الصلاحيات");
       return;
@@ -114,6 +117,7 @@ export default function BackdoorModal({
   };
 
   const toggleAnalytics = async () => {
+    if (import.meta.env.VITE_EDITION === 'processing') return;
     if (!password) {
       setError("الرجاء إدخال كلمة المرور أولاً لتغيير الصلاحيات");
       return;
@@ -179,7 +183,8 @@ export default function BackdoorModal({
           </button>
         </div>
 
-        {/* Admin Toggle */}
+        {/* Admin Toggle - hidden in processing edition */}
+        {import.meta.env.VITE_EDITION !== 'processing' && (
         <div className="mb-6 flex items-center justify-between rounded-lg border border-slate-700 bg-slate-800/50 p-4">
           <div>
             <span className="block text-sm font-semibold text-slate-200">وضع الإدارة المركزية</span>
@@ -203,8 +208,10 @@ export default function BackdoorModal({
             )}
           </button>
         </div>
+        )}
 
-        {/* Upload Authority Toggle */}
+        {/* Upload Authority Toggle - hidden in processing edition */}
+        {import.meta.env.VITE_EDITION !== 'processing' && (
         <div className="mb-4 flex items-center justify-between rounded-lg border border-slate-700 bg-slate-800/50 p-4">
           <div>
             <span className="block text-sm font-semibold text-emerald-400">صلاحية رفع البيانات</span>
@@ -228,8 +235,10 @@ export default function BackdoorModal({
             )}
           </button>
         </div>
+        )}
 
-        {/* Analytics Authority Toggle */}
+        {/* Analytics Authority Toggle - hidden in processing edition */}
+        {import.meta.env.VITE_EDITION !== 'processing' && (
         <div className="mb-4 flex items-center justify-between rounded-lg border border-slate-700 bg-slate-800/50 p-4">
           <div>
             <span className="block text-sm font-semibold text-sky-400">صلاحية عرض التحليلات</span>
@@ -253,8 +262,10 @@ export default function BackdoorModal({
             )}
           </button>
         </div>
+        )}
 
-        {/* Delete Authority Toggle */}
+        {/* Delete Authority Toggle - hidden in processing edition */}
+        {import.meta.env.VITE_EDITION !== 'processing' && (
         <div className="mb-6 flex items-center justify-between rounded-lg border border-slate-700 bg-slate-800/50 p-4">
           <div>
             <span className="block text-sm font-semibold text-rose-400">صلاحية الحذف من قاعدة البيانات</span>
@@ -278,6 +289,7 @@ export default function BackdoorModal({
             )}
           </button>
         </div>
+        )}
 
         <form className="space-y-4" onSubmit={onSubmit}>
           <label className="block">

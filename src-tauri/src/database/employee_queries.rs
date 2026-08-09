@@ -573,3 +573,74 @@ pub fn export_employees_to_excel(
 
     Ok(output_path)
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SingleEmployeeExportData {
+    pub original_name: String,
+    pub normalized_name: String,
+    pub ministry: Option<String>,
+    pub directorate: Option<String>,
+    pub approval_year: Option<i32>,
+    pub row_number: Option<i32>,
+    pub data_columns: serde_json::Map<String, Value>,
+}
+
+pub fn export_single_employee_to_excel(
+    output_path: String,
+    employee: SingleEmployeeExportData,
+) -> Result<String, String> {
+    let mut wb = Workbook::new();
+    let ws = wb.add_worksheet();
+    ws.set_right_to_left(true);
+
+    let header_fmt = Format::new()
+        .set_bold()
+        .set_align(FormatAlign::Center)
+        .set_align(FormatAlign::VerticalCenter)
+        .set_border(FormatBorder::Thin)
+        .set_background_color(Color::RGB(0x1A3A6E))
+        .set_font_color(Color::White)
+        .set_font_size(11.0);
+
+    let data_fmt = Format::new()
+        .set_align(FormatAlign::Right)
+        .set_align(FormatAlign::VerticalCenter)
+        .set_border(FormatBorder::Thin)
+        .set_font_size(10.0);
+
+    ws.set_column_width(0, 25.0).ok();
+    ws.set_column_width(1, 40.0).ok();
+
+    ws.write_string_with_format(0, 0, "الخاصية", &header_fmt).ok();
+    ws.write_string_with_format(0, 1, "القيمة", &header_fmt).ok();
+
+    let mut row_idx = 1;
+
+    let mut write_row = |key: &str, val: &str| {
+        ws.write_string_with_format(row_idx, 0, key, &header_fmt).ok();
+        ws.write_string_with_format(row_idx, 1, val, &data_fmt).ok();
+        row_idx += 1;
+    };
+
+    write_row("الاسم الأصلي", &employee.original_name);
+    write_row("الوزارة", employee.ministry.as_deref().unwrap_or(""));
+    write_row("الدائرة", employee.directorate.as_deref().unwrap_or(""));
+    write_row("سنة المصادقة", &employee.approval_year.map(|y| y.to_string()).unwrap_or_default());
+    write_row("التسلسل", &employee.row_number.map(|r| r.to_string()).unwrap_or_default());
+
+    for (k, v) in employee.data_columns {
+        if !v.is_null() && v != "" {
+            let val_str = match v {
+                Value::Number(n) => n.to_string(),
+                Value::String(s) => s,
+                _ => v.to_string(),
+            };
+            write_row(&k, &val_str);
+        }
+    }
+
+    wb.save(&output_path)
+        .map_err(|e| format!("فشل في حفظ ملف الإكسل: {}", e))?;
+
+    Ok(output_path)
+}
