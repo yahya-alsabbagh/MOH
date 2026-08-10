@@ -156,7 +156,11 @@ pub fn extract_duplicates_keep_false(
 
     let mut rows_iter = range.rows();
     let headers_row = rows_iter.next().ok_or(DuplicateError::MissingHeader)?;
-    let headers: Vec<String> = headers_row.iter().map(cell_to_string).collect();
+    // نفس تطبيع `read_headers` — الواجهة ترسل الاسم الذي عرضته تلك الدالة.
+    let headers: Vec<String> = headers_row
+        .iter()
+        .map(|c| crate::core::cleaner::normalize_header(&cell_to_string(c)))
+        .collect();
 
     let duplicate_col_idx = headers
         .iter()
@@ -354,10 +358,12 @@ pub fn read_headers(file_path: impl AsRef<Path>) -> Result<Vec<String>, Duplicat
         .ok_or(DuplicateError::EmptyWorkbook)?;
     let range = workbook.worksheet_range(&first_sheet_name)?;
     let headers_row = range.rows().next().ok_or(DuplicateError::MissingHeader)?;
+    // التطبيع هنا حصراً — الواجهة تستخدم هذه القيم كما هي عند اختيار الأعمدة،
+    // فلا بد أن تطابق تماماً ما تراه مسارات الاستيراد.
     let headers: Vec<String> = headers_row
         .iter()
-        .map(cell_to_string)
-        .filter(|h| !h.trim().is_empty())
+        .map(|c| crate::core::cleaner::normalize_header(&cell_to_string(c)))
+        .filter(|h| !h.is_empty())
         .collect();
     Ok(headers)
 }

@@ -422,12 +422,12 @@ pub fn fetch_filtered_analytics(
 }
 
 #[tauri::command]
-pub async fn fetch_database_summary() -> Result<Vec<crate::database::queries::DatabaseSummary>, String> {
+pub fn fetch_database_summary() -> Result<Vec<crate::database::queries::DatabaseSummary>, String> {
     crate::database::queries::fetch_database_summary()
 }
 
 #[tauri::command]
-pub async fn delete_dataset(ministry: String, directorate: String, approval_year: i32) -> Result<usize, String> {
+pub fn delete_dataset(ministry: String, directorate: String, approval_year: i32) -> Result<usize, String> {
     let path = license::default_license_path().map_err(to_string_error)?;
     let is_unlocked = license::load_license_file(&path)
         .map(|d| d.is_delete_unlocked)
@@ -439,18 +439,18 @@ pub async fn delete_dataset(ministry: String, directorate: String, approval_year
 }
 
 #[tauri::command]
-pub async fn fetch_hierarchy_options() -> Result<Vec<crate::database::queries::MinistryHierarchy>, String> {
+pub fn fetch_hierarchy_options() -> Result<Vec<crate::database::queries::MinistryHierarchy>, String> {
     crate::database::queries::fetch_hierarchy_options()
 }
 
 #[tauri::command]
-pub async fn fetch_dataset_details(ministry: String, directorate: String, approval_year: i32) -> Result<Vec<crate::database::queries::DepartmentMetric>, String> {
+pub fn fetch_dataset_details(ministry: String, directorate: String, approval_year: i32) -> Result<Vec<crate::database::queries::DepartmentMetric>, String> {
     check_session_heartbeat().map_err(to_string_error)?;
     crate::database::queries::fetch_dataset_details(ministry, directorate, approval_year)
 }
 
 #[tauri::command]
-pub async fn update_dataset_records(ministry: String, directorate: String, approval_year: i32, records: Vec<crate::database::queries::DepartmentMetric>) -> Result<usize, String> {
+pub fn update_dataset_records(ministry: String, directorate: String, approval_year: i32, records: Vec<crate::database::queries::DepartmentMetric>) -> Result<usize, String> {
     let path = license::default_license_path().map_err(to_string_error)?;
     let is_unlocked = license::load_license_file(&path)
         .map(|d| d.is_delete_unlocked)
@@ -463,7 +463,7 @@ pub async fn update_dataset_records(ministry: String, directorate: String, appro
 }
 
 #[tauri::command]
-pub async fn export_dataset_to_excel(output_path: String, ministry: String, directorate: String, approval_year: i32, records: Vec<crate::database::queries::DepartmentMetric>) -> Result<(), String> {
+pub fn export_dataset_to_excel(output_path: String, ministry: String, directorate: String, approval_year: i32, records: Vec<crate::database::queries::DepartmentMetric>) -> Result<(), String> {
     check_session_heartbeat().map_err(to_string_error)?;
     crate::database::exporter::export_dataset(&output_path, &ministry, &directorate, approval_year, records)
 }
@@ -541,7 +541,7 @@ pub fn align_employee_columns(
 }
 
 #[tauri::command]
-pub async fn fetch_employees_summary() -> Result<Vec<crate::database::employee_queries::EmployeeSummary>, String> {
+pub fn fetch_employees_summary() -> Result<Vec<crate::database::employee_queries::EmployeeSummary>, String> {
     crate::database::employee_queries::fetch_employees_summary()
 }
 
@@ -563,12 +563,12 @@ pub fn fetch_employee_details(
 }
 
 #[tauri::command]
-pub async fn fetch_employee_columns() -> Result<Vec<String>, String> {
+pub fn fetch_employee_columns() -> Result<Vec<String>, String> {
     crate::database::employee_queries::fetch_employee_columns()
 }
 
 #[tauri::command(rename_all = "camelCase")]
-pub async fn delete_employee_dataset(
+pub fn delete_employee_dataset(
     ministry: String,
     directorate: String,
     approval_year: i32,

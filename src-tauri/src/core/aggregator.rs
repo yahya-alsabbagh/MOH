@@ -76,7 +76,7 @@ pub fn run_aggregation_file(file_path: impl AsRef<Path>) -> Result<String, Aggre
         .next()
         .ok_or(AggregatorError::MissingHeader)?
         .iter()
-        .map(cell_to_string)
+        .map(|c| crate::core::cleaner::normalize_header(&cell_to_string(c)))
         .collect::<Vec<_>>();
 
     let title_idx = headers.iter().position(|h| h == "العنوان الوظيفي المعدل")

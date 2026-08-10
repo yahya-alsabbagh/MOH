@@ -1,10 +1,10 @@
-use calamine::{open_workbook_auto, Data, DataType, Reader};
+use calamine::{open_workbook_auto, Data, Reader};
 use duckdb::Connection;
 use serde_json::{json, Map, Value};
 use std::collections::HashMap;
 
 use super::setup::get_db_path;
-use crate::core::cleaner::normalize_arabic_name;
+use crate::core::cleaner::{normalize_arabic_name, normalize_header};
 
 /// Converts a calamine cell to a JSON Value, preserving data types.
 fn cell_to_json_value(cell: &Data) -> Value {
@@ -87,18 +87,15 @@ pub fn import_employees_to_db(
     let header_row = rows.next().ok_or("الملف لا يحتوي على صف عناوين")?;
 
     // ── 2. Parse headers ───────────────────────────────────────
+    // `cell_to_string` (لا `get_string`) حتى تُقرأ العناوين الرقمية مثل "2024"،
+    // و`normalize_header` هو نفس التطبيع الذي رأت الواجهة نتيجته عبر `read_headers`.
     let headers: Vec<String> = header_row
         .iter()
-        .map(|cell| {
-            cell.get_string()
-                .unwrap_or("")
-                .trim()
-                .replace('\n', " ")
-                .replace("  ", " ")
-        })
+        .map(|cell| normalize_header(&cell_to_string(cell)))
         .collect();
 
-    // Find the name column index
+    // Find the name column index (بعد تطبيع الاسم القادم من الواجهة بنفس القاعدة)
+    let name_column = normalize_header(&name_column);
     let name_idx = headers
         .iter()
         .position(|h| h == &name_column)
@@ -224,15 +221,20 @@ pub fn align_employee_columns(
 
     let threshold = 0.75;
     let mut results: Vec<ColumnAlignment> = Vec::new();
+    // تطبيع بنفس قاعدة الاستيراد، وإلا قُورن عنوان غير مطبَّع بسجل مطبَّع
+    // فظهر العمود الموجود أصلاً وكأنه عمود جديد.
+    let name_column = normalize_header(&name_column);
 
     for header in &headers {
+        let header = normalize_header(header);
+
         // Skip the name column — it's not a data column
-        if header == &name_column || header.is_empty() {
+        if header == name_column || header.is_empty() {
             continue;
         }
 
         // Check exact match first
-        if registry.iter().any(|r| r == header) {
+        if registry.iter().any(|r| r == &header) {
             // Exact match — no action needed
             continue;
         }

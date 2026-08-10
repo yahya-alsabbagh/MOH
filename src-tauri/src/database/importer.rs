@@ -1,6 +1,5 @@
 use calamine::{open_workbook_auto, Data, Reader, DataType};
 use duckdb::Connection;
-use std::collections::HashMap;
 
 use super::setup::get_db_path;
 
@@ -23,34 +22,52 @@ pub fn import_to_db(
     let mut rows = sheet.rows();
     let header_row = rows.next().ok_or("الملف لا يحتوي على صف عناوين")?;
 
-    // Map headers to indices
-    let mut header_map = HashMap::new();
-    for (i, cell) in header_row.iter().enumerate() {
-        if let Some(text) = cell.get_string() {
-            let normalized = text.trim().replace("\n", " ").replace("  ", " ");
-            header_map.insert(normalized, i);
-        }
-    }
+    // Map headers to indices.
+    // A Vec (not a HashMap) so the lookup order is the sheet's column order and
+    // therefore deterministic — a HashMap made the same file import differently
+    // between runs whenever two headers both matched a keyword.
+    let headers: Vec<(String, usize)> = header_row
+        .iter()
+        .enumerate()
+        .filter_map(|(i, cell)| {
+            let text = cell.get_string()?;
+            let normalized = crate::core::cleaner::normalize_header(text);
+            if normalized.is_empty() { None } else { Some((normalized, i)) }
+        })
+        .collect();
 
-    // Helper to find column index by possible names
-    let find_col = |names: &[&str]| -> Option<usize> {
+    // Finds a column by name. Exact match wins over a substring match, and
+    // `skip_totals` excludes summary headers such as "مجموع الذكور" from
+    // matching the plain "ذكور" keyword.
+    fn find_col(headers: &[(String, usize)], names: &[&str], skip_totals: bool) -> Option<usize> {
+        let eligible = |h: &str| !skip_totals || !h.contains("مجموع");
+
+        // Pass 1: exact match
         for name in names {
-            for (header, idx) in &header_map {
-                if header.contains(name) {
+            for (header, idx) in headers {
+                if header == name && eligible(header) {
+                    return Some(*idx);
+                }
+            }
+        }
+        // Pass 2: substring fallback
+        for name in names {
+            for (header, idx) in headers {
+                if header.contains(name) && eligible(header) {
                     return Some(*idx);
                 }
             }
         }
         None
-    };
+    }
 
-    let title_idx = find_col(&["العنوان الوظيفي", "المسمى الوظيفي"]);
-    let grade_idx = find_col(&["الدرجة", "الدرجة الوظيفية"]);
-    let code_idx = find_col(&["الرمز", "الرمز الوظيفي"]);
-    let male_idx = find_col(&["ذكور", "ذكر", "الذكور"]);
-    let female_idx = find_col(&["اناث", "إناث", "الاناث", "الإناث", "انثى", "أنثى"]);
-    let vacant_idx = find_col(&["شاغر", "الشواغر", "الشاغر", "شواغر"]);
-    let total_idx = find_col(&["مجموع", "المجموع", "الكلي"]);
+    let title_idx = find_col(&headers, &["العنوان الوظيفي", "المسمى الوظيفي"], true);
+    let grade_idx = find_col(&headers, &["الدرجة الوظيفية", "الدرجة"], true);
+    let code_idx = find_col(&headers, &["الرمز الوظيفي", "الرمز"], true);
+    let male_idx = find_col(&headers, &["الذكور", "ذكور", "ذكر"], true);
+    let female_idx = find_col(&headers, &["الإناث", "الاناث", "إناث", "اناث", "أنثى", "انثى"], true);
+    let vacant_idx = find_col(&headers, &["الشواغر", "شواغر", "الشاغر", "شاغر"], true);
+    let total_idx = find_col(&headers, &["المجموع", "مجموع", "الكلي"], false);
 
     // If critical columns are missing, we can still proceed with nulls, but ideally we should have them.
     // Let's just proceed and extract what we can.

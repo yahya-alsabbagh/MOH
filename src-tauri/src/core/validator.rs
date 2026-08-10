@@ -131,11 +131,12 @@ fn read_sheet_as_strings(path: &Path) -> Result<(Vec<String>, Vec<Vec<String>>),
     let range = workbook.worksheet_range(&first_sheet)?;
 
     let mut rows = range.rows();
+    // نفس تطبيع `read_headers` — الواجهة ترسل الاسم الذي عرضته تلك الدالة.
     let headers = rows
         .next()
         .ok_or(ValidatorError::MissingHeader)?
         .iter()
-        .map(cell_to_string)
+        .map(|c| crate::core::cleaner::normalize_header(&cell_to_string(c)))
         .collect::<Vec<_>>();
 
     let data_rows = rows

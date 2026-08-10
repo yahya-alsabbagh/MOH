@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { Database, UploadCloud, BarChart3, Home, FileSpreadsheet, Building2, CalendarDays, Loader2, Landmark, CheckCircle2, Users, UsersRound, UserMinus, HardDrive, Search, UserCheck } from "lucide-react";
+import { Database, UploadCloud, BarChart3, Home, FileSpreadsheet, Building2, CalendarDays, Loader2, Landmark, CheckCircle2, Users, HardDrive, UserCheck } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { open } from "@tauri-apps/plugin-dialog";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -9,27 +9,6 @@ import DatabaseManager from "./DatabaseManager";
 import EmployeeManager from "./EmployeeManager";
 import SearchableCombobox from "../components/SearchableCombobox";
 import ColumnAlignmentModal from "../components/ColumnAlignmentModal";
-
-interface DepartmentMetric {
-  id: number;
-  ministry?: string;
-  directorate?: string;
-  approval_year?: number;
-  job_title?: string;
-  job_grade?: string;
-  job_code?: string;
-  male_count?: number;
-  female_count?: number;
-  vacant_count?: number;
-  total_count?: number;
-}
-
-interface KpiSummary {
-  total_male: number;
-  total_female: number;
-  total_vacant: number;
-  total_count: number;
-}
 
 interface DeptInfo {
   dept_code: number;
@@ -78,11 +57,8 @@ export default function DataCenter({
 
   const dropZoneRef = useRef<HTMLDivElement>(null);
 
-  // Analytics State
-  const [metrics, setMetrics] = useState<DepartmentMetric[]>([]);
-  const [kpi, setKpi] = useState<KpiSummary | null>(null);
-  const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
+  // لا حالة تحليلات هنا: AnalyticsDashboard يجلب بياناته بنفسه عبر
+  // fetch_filtered_analytics المُرقَّم. الجلب السابق كان يحمّل الجدول كاملاً بلا عرض.
 
   // Hierarchy State
   const [hierarchy, setHierarchy] = useState<MinistryHierarchy[]>([]);
@@ -118,13 +94,6 @@ export default function DataCenter({
             setErrorMsg("");
             setNameColumn("");
             setExcelHeaders([]);
-
-            // If employee mode, auto-read headers on drop
-            if (fileType === "employees") {
-              invoke<string[]>("read_excel_headers", { filePath: path })
-                .then(headers => setExcelHeaders(headers.map(h => h.trim().replace(/\n/g, ' ').replace(/  +/g, ' ')).filter(h => h !== "")))
-                .catch(err => console.error("Failed to read headers:", err));
-            }
           }
         }
       }
@@ -133,27 +102,28 @@ export default function DataCenter({
     return () => {
       unlistenPromise.then((unlisten) => unlisten());
     };
-  }, [fileType]);
+  }, []);
 
+  // قراءة عناوين الإكسل في مكان واحد — تعمل سواء اختير الملف قبل تبديل الوجهة أو بعده.
+  // العناوين تصل مطبَّعة من الخلفية (normalize_header)؛ لا تطبيع هنا إطلاقاً.
   useEffect(() => {
-    if (activeTab === "analytics") {
-      fetchAnalyticsData();
-    }
-  }, [activeTab]);
+    if (fileType !== "employees" || !filePath) return;
 
-  const fetchAnalyticsData = async () => {
-    setIsLoadingAnalytics(true);
-    try {
-      const fetchedMetrics = await invoke<DepartmentMetric[]>("fetch_all_metrics");
-      const fetchedKpi = await invoke<KpiSummary>("fetch_kpi_summary");
-      setMetrics(fetchedMetrics);
-      setKpi(fetchedKpi);
-    } catch (err) {
-      console.error("Failed to fetch analytics:", err);
-    } finally {
-      setIsLoadingAnalytics(false);
-    }
-  };
+    let cancelled = false;
+    setIsLoadingHeaders(true);
+    invoke<string[]>("read_excel_headers", { filePath })
+      .then((headers) => {
+        if (!cancelled) setExcelHeaders(headers);
+      })
+      .catch((err) => {
+        if (!cancelled) console.error("Failed to read headers:", err);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingHeaders(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [filePath, fileType]);
 
   const handleSelectFile = async () => {
     const selected = await open({
@@ -167,19 +137,6 @@ export default function DataCenter({
       setErrorMsg("");
       setNameColumn("");
       setExcelHeaders([]);
-
-      // If employee mode, auto-read headers
-      if (fileType === "employees") {
-        setIsLoadingHeaders(true);
-        try {
-          const headers = await invoke<string[]>("read_excel_headers", { filePath: selected });
-          setExcelHeaders(headers.map(h => h.trim().replace(/\n/g, ' ').replace(/  +/g, ' ')).filter(h => h !== ""));
-        } catch (err) {
-          console.error("Failed to read headers:", err);
-        } finally {
-          setIsLoadingHeaders(false);
-        }
-      }
     }
   };
 
@@ -262,16 +219,6 @@ export default function DataCenter({
   const isFormValid = fileType === "statistics"
     ? filePath && ministry && directorate && year
     : filePath && ministry && directorate && year && nameColumn;
-
-  // Filtered metrics via useMemo for optimal performance
-  const filteredMetrics = useMemo(() => {
-    if (!searchQuery.trim()) return metrics;
-    const query = searchQuery.toLowerCase();
-    return metrics.filter(m =>
-      (m.job_title && m.job_title.toLowerCase().includes(query)) ||
-      (m.job_code && m.job_code.toLowerCase().includes(query))
-    );
-  }, [metrics, searchQuery]);
 
   // Dynamically calculate available tabs based on permissions
   const availableTabs = useMemo(() => {

@@ -93,7 +93,8 @@ d:\Programming\MOH\MOH\
 │   │   ├── SearchableCombobox.tsx # قائمة منسدلة قابلة للبحث
 │   │   ├── ColumnAlignmentModal.tsx  # نافذة محاذاة الأعمدة
 │   │   ├── ConflictResolution.tsx    # حل التعارضات
-│   │   └── DatasetEditorModal.tsx    # نافذة تعديل مجموعة البيانات
+│   │   ├── DatasetEditorModal.tsx    # نافذة تعديل مجموعة البيانات
+│   │   └── EmployeeDetailsModal.tsx  # نافذة تفاصيل موظف واحد + تصدير مفرد
 │   └── views\
 │       ├── Home.tsx               # الصفحة الرئيسية (أدوات المعالجة)
 │       ├── DataCenter.tsx         # مركز إدارة البيانات (Admin فقط)
@@ -131,8 +132,30 @@ d:\Programming\MOH\MOH\
 ├── package.json                  # تبعيات Node.js
 ├── vite.config.ts                # إعداد Vite
 ├── tailwind.config.js            # إعداد Tailwind (يشمل لون navy مخصص)
+├── .env.processing               # VITE_EDITION=processing (نسخة المعالجة)
 └── تفاصيل.txt                   # ملاحظات المطور (أوامر وكلمات مرور)
 ```
+
+---
+
+## 3.1 نسختا البناء (Editions)
+
+> ⚠️ للمشروع **نسختان** تُبنيان من نفس الكود، والفرق بينهما يُحسم وقت البناء عبر متغيّر Vite.
+
+| | **النسخة الكاملة** | **نسخة المعالجة (processing)** |
+|---|---|---|
+| **أمر البناء** | `npm run tauri build` | `npm run tauri:build:processing` |
+| **ملف الإعداد** | `tauri.conf.json` | `tauri.processing.conf.json` (يورّث الأساسي ويبدّل `beforeBuildCommand`) |
+| **متغيّر البيئة** | — | `VITE_EDITION=processing` من `.env.processing` |
+| **مركز إدارة البيانات** | متاح | **مبتور بالكامل** |
+| **لوحة التحكم السرية** | كل المفاتيح الأربعة | المفاتيح مخفيّة؛ يبقى تجديد الترخيص فقط |
+
+**آلية البتر في الكود** (`import.meta.env.VITE_EDITION === 'processing'`):
+- [`App.tsx`](src/App.tsx): `DataCenter` يُستبدل بمكوّن رسالة ثابتة بدل `React.lazy` — أي أن كود مركز البيانات **لا يدخل الحزمة أصلاً**.
+- [`App.tsx`](src/App.tsx): مسار `/data-center` لا يُسجَّل، والزر العائم لا يُعرض.
+- [`BackdoorModal.tsx`](src/components/BackdoorModal.tsx): مفاتيح Admin/Upload/Analytics/Delete مخفيّة، ودوال `toggle*` تعود فوراً بلا تنفيذ.
+
+> عند إضافة أي شاشة تابعة لمركز البيانات، يجب حجبها بنفس الشرط وإلا تسرّبت إلى نسخة المعالجة.
 
 ---
 
@@ -233,6 +256,18 @@ check_session_heartbeat().map_err(to_string_error)?;
 license::verify_and_touch_license().map_err(to_string_error)?;
 ```
 
+### 4.6.1 ⚠️ سلوك عدّاد التشغيل: `max_runs = N` يعني **N−1** تشغيلاً فعلياً
+
+سلوك **مقصود ومعتمد — لا يُعدَّل.** السبب أن الفحص يقع بعد الزيادة لا قبلها:
+
+1. عند الإقلاع يستدعي `main.rs` الدالة `increment_run_count()` فترفع `run_count` بمقدار 1.
+2. ثم تستدعي الواجهة `get_license_status` → `verify_and_touch_license` فتقارن `run_count >= max_runs`.
+
+فمع `max_runs = 10`: التشغيلات 1..9 تمرّ، وفي التشغيل العاشر يصبح العدّاد 10 فيتحقق `10 >= 10`
+→ `set_decoy_files_blocked()` → شاشة الحجب. **النتيجة: 9 تشغيلات صالحة.**
+
+> عند منح ترخيص للمستخدم أدخل **العدد المطلوب + 1**.
+
 ### 4.7 الصلاحيات الأربع
 
 | الصلاحية | الحقل في LicenseData | الوظيفة |
@@ -321,6 +356,28 @@ WHERE (job_title NOT LIKE 'مجموع %' AND job_title NOT LIKE 'المجموع 
    AND job_title NOT LIKE '%مجموع الدرجة%' AND job_title NOT LIKE '%مجموع درجة%')
 ```
 - الباب **43** في `hierarchy_lookup` له معالجة خاصة: كل صف كيان مستقل بكود اصطناعي `(dept_code * 100 + 43)`
+- **البحث في التحليلات جزئي لا تام:** `fetch_filtered_analytics` يستخدم
+  `job_title LIKE ?` مع النمط `%s%`، لأن الواجهة صندوق بحث حي بـ debounce.
+  (كان `job_title = ?` فكانت أي كتابة جزئية تُرجع صفر نتائج.)
+
+### 5.4 ⚠️ صيغة `job_grade`: التخزين بالأصل والعرض بالعربية
+
+القاعدة: **قاعدة البيانات تحتفظ بالقيمة كما وردت من ملف الإكسل** (`"1"`، `"عليا ا"`، …)،
+والتحويل إلى الاسم العربي (`"الأولى"`) يحدث **عند العرض والتصدير فقط**:
+
+| الموضع | السلوك |
+|--------|--------|
+| `fetch_dataset_details` | يُرجع القيمة **الخام** (لا تحويل) |
+| `update_dataset_records` | يكتب ما يصله كما هو |
+| `fetch_filtered_analytics` | يحوّل للعربية في `grid_data` و`grade_distribution` (عرض فقط) |
+| `exporter.rs::export_dataset` | يحوّل للعربية في خلية الدرجة وفي صفوف المجاميع |
+| `DatasetEditorModal.tsx` | `mapGradeToArabic` لعنوان صف المجموع؛ حقل الإدخال يعرض القيمة الخام |
+
+> ⛔ لا تُعِد التحويل داخل `fetch_dataset_details`. كان ذلك يجعل مجرد
+> (فتح نافذة التعديل ← حفظ) **دون أي تعديل** يبدّل صيغة التخزين، فتتعايش `"1"` و`"الأولى"`
+> في نفس العمود عبر التشكيلات.
+> ملاحظة: استعلامات الترتيب في `queries.rs` تتعامل مع الصيغتين معاً، وكذلك
+> `gradeWeight` في `DatasetEditorModal.tsx`.
 
 ---
 
@@ -351,10 +408,27 @@ WHERE (job_title NOT LIKE 'مجموع %' AND job_title NOT LIKE 'المجموع 
 
 ### 6.4 `fuzzy.rs` — الفحص الذكي الضبابي
 
-يستخدم **RapidFuzz** مع معالجة متوازية عبر **Rayon**:
+يستخدم **RapidFuzz** (Jaro-Winkler) مع معالجة متوازية عبر **Rayon**:
 - **التكرار التام (Exact):** أسماء متطابقة 100% بعد التطبيع
-- **التشابه الضبابي (Fuzzy):** عتبة قابلة للتخصيص (افتراضي 80%، النطاق 50%-99%)
-- أنواع التطابق: `تشابه عالي جداً` / `تشابه عالي` / `تشابه متوسط`
+- **التشابه الضبابي (Fuzzy):** الواجهة تمرّر **0.90** فعلياً
+  ([`DuplicateCheckerCard.tsx`](src/components/DuplicateCheckerCard.tsx))؛
+  القيمة الاحتياطية في الخلفية 0.80 وتُقيَّد بالنطاق 50%-99%
+- أنواع التطابق: `تشابه عالي جداً` (≥95) / `تشابه عالي` (≥90) / `تشابه متوسط`
+
+**تحسينات الأداء الخمسة** (في `detect_fuzzy_duplicates`): تجميع بأول حرفين، مرشّح الطول،
+سقف 1000 نتيجة عبر min-heap، حساب مسبق لأطوال الأسماء، و`score_cutoff`.
+
+**مرشّح الطول — الصيغة المعتمدة:**
+```rust
+let ratio = min_len as f64 / max_len as f64;
+if 0.8 + 0.2 * ratio < threshold { continue; }   // تخطٍّ آمن رياضياً
+```
+`0.8 + 0.2·r` هو الحدّ الأعلى الفعلي لـ Jaro-Winkler عند نسبة طول `r`
+(لأن `Jaro ≤ (2 + r)/3` و`JW ≤ 0.6·Jaro + 0.4`).
+
+> ⛔ لا تُستبدل هذه الصيغة بمقارنة مباشرة `ratio < threshold`. تلك المقارنة أشدّ من اللازم
+> وتُسقط تكرارات حقيقية بين اسمين طويلين مختلفَي الطول (مثلاً 20 و17 حرفاً بتشابه 93%)
+> — أي **سلبيات كاذبة في أداة كشف تلاعب**.
 
 ```rust
 pub struct SmartScanResult {
@@ -399,8 +473,8 @@ pub struct SmartScanResult {
 
 | الأمر | الوصف |
 |-------|--------|
-| `read_excel_headers` | قراءة أسماء الأعمدة من ملف Excel |
-| `run_duplicate_check` | كشف التكرار البسيط (مطابقة تامة) |
+| `read_excel_headers` | قراءة أسماء الأعمدة من ملف Excel (**مطبَّعة** — انظر §9) |
+| `run_duplicate_check` | ⚠️ **مسجَّل ولا تستدعيه الواجهة** — كشف التكرار البسيط (مطابقة تامة + الاسم الثلاثي). محفوظ عمداً؛ استُبدل في الواجهة بالفحص الذكي |
 | `run_title_validation` | التحقق من العناوين والدرجات الوظيفية |
 | `run_aggregation` | تجميع البيانات وإنتاج إحصاءات |
 | `run_smart_duplicate_scan` | الفحص الضبابي الذكي للأسماء |
@@ -412,7 +486,7 @@ pub struct SmartScanResult {
 | الأمر | يتحقق من الجلسة | يتحقق من الصلاحية |
 |-------|----------------|------------------|
 | `import_data_to_db` | ✅ | — (الواجهة تخفي التبويب بدون Upload) |
-| `fetch_all_metrics` | ✅ | — |
+| `fetch_all_metrics` | ✅ | ⚠️ **مسجَّل ولا تستدعيه الواجهة** — يُرجع الجدول كاملاً بلا ترقيم. محفوظ عمداً؛ التحليلات تستخدم `fetch_filtered_analytics` المُرقَّم |
 | `fetch_kpi_summary` | ✅ | — |
 | `fetch_filter_options` | ✅ | — |
 | `fetch_filtered_analytics` | ✅ | — |
@@ -434,7 +508,19 @@ pub struct SmartScanResult {
 | `fetch_employee_columns` | ❌ | — |
 | `delete_employee_dataset` | ❌ | Delete |
 | `export_employees_to_excel` | ✅ | — |
-| `search_employees_globally` | ✅ | — |
+| `export_single_employee_to_excel` | ✅ | — (تصدير موظف واحد من `EmployeeDetailsModal`) |
+| `search_employees_globally` | ✅ | — (محدود بـ `LIMIT 500`) |
+
+### 7.6 ⚠️ أوامر قاعدة البيانات **متزامنة عمداً** (بلا `async`)
+
+كل أوامر DuckDB معرّفة `pub fn` لا `pub async fn`. هذا **مقصود ولا يُعكس**:
+الأمر المتزامن يُنفَّذ على مجمّع الخيوط الحاجز في Tauri، أما الأمر `async` فيُنفَّذ على مُنفِّذ
+غير متزامن — وأي انتظار على `DB_LOCK` (وهو `std::sync::Mutex`) داخل مُنفِّذ غير متزامن
+**يوقف المُنفِّذ كلّه ويجمّد الواجهة** إذا كان استيراد طويل ممسكاً بالقفل.
+
+> **الأمران الوحيدان اللذان يبقيان `async`:** `run_title_validation` و`run_smart_duplicate_scan`
+> لأن فيهما `await` حقيقياً على `tauri::async_runtime::spawn_blocking`.
+> **قاعدة عامة:** لا تجعل الأمر `async` إلا إذا كان يحتوي `await` فعلياً.
 
 ---
 
@@ -540,12 +626,52 @@ pub struct SmartScanResult {
 
 10. **شريط العنوان يُخفى عند الطباعة** (`print:hidden`) — الواجهة مهيأة للطباعة بـ CSS خاص.
 
+11. **تطبيع عناوين أعمدة الإكسل مسؤولية الخلفية حصراً** — انظر §9.1 أدناه.
+
+12. **`job_grade` يُخزَّن بقيمته الأصلية؛ التحويل للعربية عند العرض/التصدير فقط** — انظر §5.4.
+
+13. **الأمر لا يكون `async` إلا إذا احتوى `await` فعلياً** — انظر §7.6.
+
+---
+
+### 9.1 ⛔ تطبيع عناوين الأعمدة: `normalize_header` هو مصدر الحقيقة الوحيد
+
+```rust
+// core/cleaner.rs
+pub fn normalize_header(raw: &str) -> String {
+    raw.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+```
+
+تُستدعى في **كل** موضع يُقرأ فيه صف عناوين، بلا استثناء:
+
+| الملف | الدالة |
+|-------|--------|
+| `core/duplicate.rs` | `read_headers` (مصدر القائمة التي تراها الواجهة) و`extract_duplicates_keep_false` |
+| `core/validator.rs` | `read_sheet_as_strings` |
+| `core/fuzzy.rs` | `run_full_fuzzy_scan` |
+| `core/aggregator.rs` | `run_aggregation_file` |
+| `database/importer.rs` | بناء قائمة العناوين |
+| `database/employee_importer.rs` | `import_employees_to_db` و`align_employee_columns` |
+
+**قاعدتان لا تُخرقان:**
+1. **الواجهة لا تطبّع شيئاً** — تستهلك ما يصلها من `read_excel_headers` كما هو.
+   (كان في `DataCenter.tsx` تطبيع بـ `.trim().replace(/\n/g,' ').replace(/  +/g,' ')` وقد **حُذف**.)
+2. **أي اسم عمود يصل من الواجهة يُطبَّع قبل مقارنته** (`name_column` مثلاً)،
+   وتُستخدم `cell_to_string` لا `get_string` حتى تُقرأ العناوين الرقمية (`2024`).
+
+> كانت هناك ثلاث صيغ تطبيع مختلفة، فكان المستخدم يختار العمود من القائمة ثم يفشل الرفع
+> بخطأ «عمود الاسم غير موجود في الملف»، أو يتلوّث `employee_column_registry` بنسخ مكرّرة
+> من العمود نفسه.
+
+---
+
 ### ✅ أنماط البرمجة المتبعة
 
 - **Tauri invoke:** كل استدعاء للـ backend يُمرَّر عبر `invoke<ReturnType>("command_name", { ...params })`
 - **camelCase في الأوامر:** الأوامر التي تستقبل معاملات تُضاف لها `#[tauri::command(rename_all = "camelCase")]`
 - **أعمدة data_columns في employees_master:** تُخزَّن كـ JSON string، وتُفكَّك في الواجهة
-- **فلترة المجاميع:** عند عرض `department_metrics` يجب دائماً فلترة صفوف "مجموع" (الاستعلام موجود في `queries.rs:fetch_all_metrics`)
+- **فلترة المجاميع:** عند عرض `department_metrics` يجب دائماً فلترة صفوف "مجموع" (نموذج الشرط في §5.3، ومطبَّق في كل دوال `queries.rs`)
 - **RTL:** الواجهة بالكامل `dir="rtl"` — أي مكوّن جديد يجب أن يحترم هذا الاتجاه
 - **Font:** `font-cairo` هو الخط الافتراضي للعربية
 
@@ -574,9 +700,20 @@ cmd /c "npm run tauri dev"
 # إيقاف عمليات Cargo المتراكمة
 taskkill /F /IM cargo.exe
 
-# بناء التطبيق للإنتاج
-npm run tauri build
+# بناء النسخة الكاملة للإنتاج
+cmd /c "npm run tauri build"
+
+# بناء نسخة المعالجة فقط (بدون مركز البيانات والتحليلات — انظر §3.1)
+cmd /c "npm run tauri:build:processing"
+
+# فحص سريع بلا بناء كامل
+npx tsc --noEmit
+cd src-tauri; cargo check
 ```
+
+> ملف التنصيب النهائي في `src-tauri\target\release\bundle\nsis\` (Setup.exe)
+> أو `...\bundle\msi\`. عند إعادة التنصيب أزل النسخة القديمة أولاً مع تأشير
+> (Delete the application data) لتحديث الأيقونة.
 
 ---
 
@@ -606,6 +743,34 @@ npm run tauri build
 6. **الطباعة:** الصفحات تعتمد `print:` Tailwind utility للتخفي/الظهور عند الطباعة — احرص عليها في أي مكوّن جديد.
 
 7. **`decorations: false`:** نافذة بدون إطار — أي drag يجب أن يكون على عناصر تحمل `data-tauri-drag-region`.
+
+8. **قبل أي تعديل راجع الأقسام المُعلَّمة بـ ⛔** (§4.6.1، §5.4، §6.4، §7.6، §9.1) — كلها تُوثّق
+   قرارات مقصودة سبق أن سبّبت أخطاءً عند مخالفتها.
+
+---
+
+## 📝 سجل الإصلاحات — 2026-08-10
+
+جولة إصلاح أخطاء دون أي تغيير في فكرة النظام أو معماريته أو طبقة الترخيص.
+
+| # | الخلل | الملف | الأثر قبل الإصلاح |
+|---|-------|-------|-------------------|
+| 1 | بحث التحليلات مطابقة تامة | `queries.rs` | أي كتابة جزئية تُرجع صفر نتائج |
+| 2 | `find_col` يمرّ على `HashMap` | `importer.rs` | نفس الملف يُستورد بأرقام مختلفة بين تشغيل وآخر؛ «مجموع الذكور» يُلتقط كعمود ذكور |
+| 3 | مرشّح طول أشدّ من اللازم | `fuzzy.rs` | إسقاط تكرارات حقيقية (سلبيات كاذبة) |
+| 4 | ثلاث صيغ تطبيع للعناوين | 6 ملفات Rust + `DataCenter.tsx` | فشل الرفع بخطأ «عمود الاسم غير موجود»؛ تلوّث سجل الأعمدة |
+| 5 | التحويل للعربية داخل `fetch_dataset_details` | `queries.rs` + `exporter.rs` | فتح نافذة التعديل والحفظ يبدّل صيغة `job_grade` المخزّنة |
+| 6 | 9 أوامر `async` بلا `await` تحجب على `DB_LOCK` | `commands.rs` | تجمّد الواجهة أثناء استيراد طويل |
+| 7 | 30 استدعاء `unwrap()` في مسار التصدير | `exporter.rs` | panic بدل رسالة خطأ |
+| 8 | العناوين لا تُقرأ عند تبديل وجهة البيانات | `DataCenter.tsx` | زر الرفع معطّل نهائياً إن اختير الملف قبل التبديل |
+| 9 | الدائرة لا تُصفَّر عند تغيير الوزارة | `AnalyticsDashboard.tsx` | فلتر مستحيل يُرجع صفر نتائج |
+| 10 | `fetch_all_metrics` يُحمِّل الجدول كاملاً بلا عرض | `DataCenter.tsx` | تجمّد لحظي عند فتح تبويب التحليلات |
+| 11 | `COLORS` معرّف مرتين | `AnalyticsDashboard.tsx` | كود ميت مُضلِّل |
+| 12 | `console.log` تشخيصي + `isDecoyError` غير مستخدم | `App.tsx` | ضجيج في سجل المتصفح |
+
+**سلوكيات فُحصت وتُركت عمداً كما هي (قرار المطور):**
+عدّاد التشغيل `N−1` (§4.6.1) · الأمران `run_duplicate_check` و`fetch_all_metrics`
+مسجَّلان وغير مستدعَيين (§7.3، §7.4) · `employees_master` سجل غير قابل للتغيير بلا فحص تكرار عند إعادة الرفع.
 
 ---
 

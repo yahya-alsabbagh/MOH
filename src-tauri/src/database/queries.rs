@@ -312,8 +312,9 @@ pub fn fetch_filtered_analytics(
 
     if let Some(s) = search {
         if !s.is_empty() {
-            conditions.push("job_title = ?".to_string());
-            params.push(s);
+            // بحث جزئي — الواجهة صندوق بحث حي، لا مطابقة تامة
+            conditions.push("job_title LIKE ?".to_string());
+            params.push(format!("%{}%", s));
         }
     }
 
@@ -563,7 +564,9 @@ pub fn fetch_dataset_details(ministry: String, directorate: String, approval_yea
                 directorate: row.get(2)?,
                 approval_year: row.get(3)?,
                 job_title: row.get(4)?,
-                job_grade: row.get::<_, Option<String>>(5)?.map(|g| map_grade_to_arabic(&g)),
+                // القيمة الخام كما هي — التحويل للعربية عند العرض/التصدير فقط،
+                // وإلا فإن دورة (فتح نافذة التعديل ← حفظ) تُبدّل صيغة التخزين.
+                job_grade: row.get(5)?,
                 job_code: row.get(6)?,
                 male_count: row.get(7)?,
                 female_count: row.get(8)?,

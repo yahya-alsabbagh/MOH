@@ -27,7 +27,7 @@ const DataCenter = import.meta.env.VITE_EDITION === 'processing'
 const appWindow = getCurrentWindow();
 
 export default function App() {
-  const { isLoading, isLocked, isDecoyError, refresh } = useLicense();
+  const { isLoading, isLocked, refresh } = useLicense();
   const [isAdminUnlocked, setIsAdminUnlocked] = useState(false);
   const [isDeleteUnlocked, setIsDeleteUnlocked] = useState(false);
   const [isUploadUnlocked, setIsUploadUnlocked] = useState(false);
@@ -50,11 +50,6 @@ export default function App() {
       .then(setIsAnalyticsUnlocked)
       .catch(console.error);
   }, []);
-
-  // DEBUG: log state changes
-  useEffect(() => {
-    console.log("[STATE CHANGE] isLocked:", isLocked, "isAdminUnlocked:", isAdminUnlocked, "pathname:", location.pathname);
-  }, [isLocked, isAdminUnlocked, location.pathname]);
 
   /* ─── Loading Screen ─── */
   if (isLoading) {

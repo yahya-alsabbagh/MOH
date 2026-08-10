@@ -57,13 +57,13 @@ pub fn export_dataset(
         .set_border(FormatBorder::Thin);
 
     // Set column widths
-    worksheet.set_column_width(0, 45.0).unwrap(); // Job Title
-    worksheet.set_column_width(1, 15.0).unwrap(); // Grade
-    worksheet.set_column_width(2, 15.0).unwrap(); // Code
-    worksheet.set_column_width(3, 10.0).unwrap(); // Males
-    worksheet.set_column_width(4, 10.0).unwrap(); // Females
-    worksheet.set_column_width(5, 10.0).unwrap(); // Vacants
-    worksheet.set_column_width(6, 15.0).unwrap(); // Total (M+F+V)
+    worksheet.set_column_width(0, 45.0).map_err(|e| e.to_string())?; // Job Title
+    worksheet.set_column_width(1, 15.0).map_err(|e| e.to_string())?; // Grade
+    worksheet.set_column_width(2, 15.0).map_err(|e| e.to_string())?; // Code
+    worksheet.set_column_width(3, 10.0).map_err(|e| e.to_string())?; // Males
+    worksheet.set_column_width(4, 10.0).map_err(|e| e.to_string())?; // Females
+    worksheet.set_column_width(5, 10.0).map_err(|e| e.to_string())?; // Vacants
+    worksheet.set_column_width(6, 15.0).map_err(|e| e.to_string())?; // Total (M+F+V)
 
     // Write headers (Row 0)
     let headers = [
@@ -71,7 +71,7 @@ pub fn export_dataset(
         "ذكور", "اناث", "شاغر", "المجموع الكلي"
     ];
     for (col_num, header) in headers.iter().enumerate() {
-        worksheet.write_string_with_format(0, col_num as u16, *header, &header_format).unwrap();
+        worksheet.write_string_with_format(0, col_num as u16, *header, &header_format).map_err(|e| e.to_string())?;
     }
 
     let mut current_row = 1;
@@ -95,11 +95,11 @@ pub fn export_dataset(
         // If grade changed and we have a previous grade, output subtotal
         if !current_grade.is_empty() && rec_grade != current_grade {
             let grade_label = format!("مجموع الدرجة {}", map_grade_to_arabic(&current_grade));
-            worksheet.merge_range(current_row, 0, current_row, 2, &grade_label, &subtotal_format).unwrap();
-            worksheet.write_number_with_format(current_row, 3, grade_males as f64, &subtotal_format).unwrap();
-            worksheet.write_number_with_format(current_row, 4, grade_females as f64, &subtotal_format).unwrap();
-            worksheet.write_number_with_format(current_row, 5, grade_vacants as f64, &subtotal_format).unwrap();
-            worksheet.write_number_with_format(current_row, 6, grade_total as f64, &subtotal_format).unwrap();
+            worksheet.merge_range(current_row, 0, current_row, 2, &grade_label, &subtotal_format).map_err(|e| e.to_string())?;
+            worksheet.write_number_with_format(current_row, 3, grade_males as f64, &subtotal_format).map_err(|e| e.to_string())?;
+            worksheet.write_number_with_format(current_row, 4, grade_females as f64, &subtotal_format).map_err(|e| e.to_string())?;
+            worksheet.write_number_with_format(current_row, 5, grade_vacants as f64, &subtotal_format).map_err(|e| e.to_string())?;
+            worksheet.write_number_with_format(current_row, 6, grade_total as f64, &subtotal_format).map_err(|e| e.to_string())?;
             current_row += 1;
 
             // Reset grade accumulators
@@ -117,13 +117,14 @@ pub fn export_dataset(
         let total = males + females + vacants;
 
         // Write row
-        worksheet.write_string_with_format(current_row, 0, record.job_title.as_deref().unwrap_or(""), &cell_format_title).unwrap();
-        worksheet.write_string_with_format(current_row, 1, record.job_grade.as_deref().unwrap_or(""), &cell_format).unwrap();
-        worksheet.write_string_with_format(current_row, 2, record.job_code.as_deref().unwrap_or(""), &cell_format).unwrap();
-        worksheet.write_number_with_format(current_row, 3, males as f64, &cell_format).unwrap();
-        worksheet.write_number_with_format(current_row, 4, females as f64, &cell_format).unwrap();
-        worksheet.write_number_with_format(current_row, 5, vacants as f64, &cell_format).unwrap();
-        worksheet.write_number_with_format(current_row, 6, total as f64, &cell_format).unwrap();
+        worksheet.write_string_with_format(current_row, 0, record.job_title.as_deref().unwrap_or(""), &cell_format_title).map_err(|e| e.to_string())?;
+        // التخزين بالقيمة الأصلية ("1")، والعرض/التصدير بالعربية ("الأولى")
+        worksheet.write_string_with_format(current_row, 1, &map_grade_to_arabic(record.job_grade.as_deref().unwrap_or("")), &cell_format).map_err(|e| e.to_string())?;
+        worksheet.write_string_with_format(current_row, 2, record.job_code.as_deref().unwrap_or(""), &cell_format).map_err(|e| e.to_string())?;
+        worksheet.write_number_with_format(current_row, 3, males as f64, &cell_format).map_err(|e| e.to_string())?;
+        worksheet.write_number_with_format(current_row, 4, females as f64, &cell_format).map_err(|e| e.to_string())?;
+        worksheet.write_number_with_format(current_row, 5, vacants as f64, &cell_format).map_err(|e| e.to_string())?;
+        worksheet.write_number_with_format(current_row, 6, total as f64, &cell_format).map_err(|e| e.to_string())?;
 
         // Accumulate
         grade_males += males;
@@ -142,20 +143,20 @@ pub fn export_dataset(
     // Output final subtotal for the last grade group if exists
     if !current_grade.is_empty() {
         let grade_label = format!("مجموع الدرجة {}", map_grade_to_arabic(&current_grade));
-        worksheet.merge_range(current_row, 0, current_row, 2, &grade_label, &subtotal_format).unwrap();
-        worksheet.write_number_with_format(current_row, 3, grade_males as f64, &subtotal_format).unwrap();
-        worksheet.write_number_with_format(current_row, 4, grade_females as f64, &subtotal_format).unwrap();
-        worksheet.write_number_with_format(current_row, 5, grade_vacants as f64, &subtotal_format).unwrap();
-        worksheet.write_number_with_format(current_row, 6, grade_total as f64, &subtotal_format).unwrap();
+        worksheet.merge_range(current_row, 0, current_row, 2, &grade_label, &subtotal_format).map_err(|e| e.to_string())?;
+        worksheet.write_number_with_format(current_row, 3, grade_males as f64, &subtotal_format).map_err(|e| e.to_string())?;
+        worksheet.write_number_with_format(current_row, 4, grade_females as f64, &subtotal_format).map_err(|e| e.to_string())?;
+        worksheet.write_number_with_format(current_row, 5, grade_vacants as f64, &subtotal_format).map_err(|e| e.to_string())?;
+        worksheet.write_number_with_format(current_row, 6, grade_total as f64, &subtotal_format).map_err(|e| e.to_string())?;
         current_row += 1;
     }
 
     // Write Grand Total row
-    worksheet.merge_range(current_row, 0, current_row, 2, "المجموع الكلي", &subtotal_format).unwrap();
-    worksheet.write_number_with_format(current_row, 3, grand_males as f64, &subtotal_format).unwrap();
-    worksheet.write_number_with_format(current_row, 4, grand_females as f64, &subtotal_format).unwrap();
-    worksheet.write_number_with_format(current_row, 5, grand_vacants as f64, &subtotal_format).unwrap();
-    worksheet.write_number_with_format(current_row, 6, grand_total as f64, &subtotal_format).unwrap();
+    worksheet.merge_range(current_row, 0, current_row, 2, "المجموع الكلي", &subtotal_format).map_err(|e| e.to_string())?;
+    worksheet.write_number_with_format(current_row, 3, grand_males as f64, &subtotal_format).map_err(|e| e.to_string())?;
+    worksheet.write_number_with_format(current_row, 4, grand_females as f64, &subtotal_format).map_err(|e| e.to_string())?;
+    worksheet.write_number_with_format(current_row, 5, grand_vacants as f64, &subtotal_format).map_err(|e| e.to_string())?;
+    worksheet.write_number_with_format(current_row, 6, grand_total as f64, &subtotal_format).map_err(|e| e.to_string())?;
 
     workbook.save(output_path).map_err(|e| e.to_string())?;
 

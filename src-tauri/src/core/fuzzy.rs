@@ -223,10 +223,14 @@ fn detect_fuzzy_duplicates(
                 let pe_j = &bucket[j];
 
                 // ── Length Filter ──
-                // إذا كان فرق الطول كبيراً، Jaro-Winkler لن يعطي نتيجة عالية
+                // الحدّ الأعلى الرياضي لـ Jaro-Winkler عند نسبة طول r هو 0.8 + 0.2·r
+                // (Jaro ≤ (2 + r)/3، و JW ≤ 0.6·Jaro + 0.4).
+                // المقارنة المباشرة (r < threshold) كانت أشدّ من اللازم وتُسقط
+                // تكرارات حقيقية بين اسمين طويلين مختلفَي الطول.
                 let min_len = pe_i.char_count.min(pe_j.char_count);
                 let max_len = pe_i.char_count.max(pe_j.char_count);
-                if (min_len as f64 / max_len as f64) < threshold {
+                let ratio = min_len as f64 / max_len as f64;
+                if 0.8 + 0.2 * ratio < threshold {
                     continue;
                 }
 
@@ -341,11 +345,12 @@ pub fn run_full_fuzzy_scan(
 
     let mut rows_iter = range.rows();
 
+    // نفس تطبيع `read_headers` — الواجهة ترسل الاسم الذي عرضته تلك الدالة.
     let headers: Vec<String> = rows_iter
         .next()
         .ok_or_else(|| "الملف لا يحتوي على صف عناوين".to_string())?
         .iter()
-        .map(cell_to_string)
+        .map(|c| crate::core::cleaner::normalize_header(&cell_to_string(c)))
         .collect();
 
     // البحث عن أعمدة البيانات

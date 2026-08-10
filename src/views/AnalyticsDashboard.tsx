@@ -61,10 +61,6 @@ interface FilterOptions {
   directorates: string[];
 }
 
-const COLORS = ['#3b82f6', '#ec4899']; // Indigo for Male, Pink for Female
-
-
-
 export default function AnalyticsDashboard() {
   const [ministries, setMinistries] = useState<string[]>([]);
   const [directorates, setDirectorates] = useState<string[]>([]);
@@ -209,7 +205,11 @@ export default function AnalyticsDashboard() {
           </label>
           <select
             value={selectedMinistry}
-            onChange={(e) => setSelectedMinistry(e.target.value)}
+            onChange={(e) => {
+              setSelectedMinistry(e.target.value);
+              // الدائرة المختارة تتبع الوزارة السابقة — إبقاؤها يُنتج فلتراً مستحيلاً
+              setSelectedDirectorate("");
+            }}
             className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
           >
             <option value="">الكل</option>
